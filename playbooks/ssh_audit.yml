@@ -15,7 +15,7 @@
         root_login: "{{ sshd_cfg.stdout | regex_search('(?m)^permitrootlogin (\\S+)', '\\1') | first }}"
         kbd_auth: "{{ sshd_cfg.stdout | regex_search('(?m)^kbdinteractiveauthentication (\\S+)', '\\1') | default(['n/a'], true) | first }}"
 
-    - name: Fleet summary
+    - name: Fleet summary  # noqa: run-once[task]
       ansible.builtin.debug:
         msg: >-
           {{ item }}:
@@ -28,7 +28,7 @@
       loop: "{{ ansible_play_hosts | sort }}"
       run_once: true                 # print once, not on every host
 
-    - name: Fail if any host is misconfigured
+    - name: Fail if any host is misconfigured  # noqa: run-once[task]
       ansible.builtin.assert:
         that:
           - hostvars[item].pw_auth != 'yes'

@@ -40,7 +40,7 @@
 
     - name: Login keys for deploy
       ansible.builtin.copy:
-        src: "../files/{{ keys_dir }}/authorized_keys"
+        src: "{{ playbook_dir | dirname }}/files/{{ keys_dir }}/authorized_keys"
         dest: "/home/{{ deploy_user }}/.ssh/authorized_keys"
         owner: "{{ deploy_user }}"
         group: "{{ deploy_user }}"
