@@ -1,0 +1,13 @@
+# Real inventory:
+inventory/*
+!inventory/hosts.ini.example
+!inventory/group_vars/example.yml
+
+# Real SSH public keys
+files/*
+!files/example/ 
+
+*.pem
+id_*
+.vault_pass*
+*.retry
