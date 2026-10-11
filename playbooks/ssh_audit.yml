@@ -8,11 +8,12 @@
       ansible.builtin.command: sshd -T
       register: sshd_cfg
       changed_when: false            # read-only, changes nothing
+      check_mode: false              # safe to run even with --check
 
     - name: Extract the settings we check
       ansible.builtin.set_fact:
-        pw_auth: "{{ sshd_cfg.stdout | regex_search('(?m)^passwordauthentication (\\S+)', '\\1') | first }}"
-        root_login: "{{ sshd_cfg.stdout | regex_search('(?m)^permitrootlogin (\\S+)', '\\1') | first }}"
+        pw_auth: "{{ sshd_cfg.stdout | regex_search('(?m)^passwordauthentication (\\S+)', '\\1') | default(['n/a'], true) | first }}"
+        root_login: "{{ sshd_cfg.stdout | regex_search('(?m)^permitrootlogin (\\S+)', '\\1') | default(['n/a'], true) | first }}"
         kbd_auth: "{{ sshd_cfg.stdout | regex_search('(?m)^kbdinteractiveauthentication (\\S+)', '\\1') | default(['n/a'], true) | first }}"
 
     - name: Fleet summary  # noqa: run-once[task]
