@@ -1,0 +1,20 @@
+- name: Sync SSH keys (login and sudo) across the fleet
+  hosts: all
+  become: true
+
+  tasks:
+    - name: Login keys for deploy
+      ansible.builtin.copy:
+        src: "../files/{{ keys_dir }}/authorized_keys"
+        dest: /home/deploy/.ssh/authorized_keys
+        owner: deploy
+        group: deploy
+        mode: "0600"
+
+    - name: Keys allowed to sudo (root-owned)
+      ansible.builtin.copy:
+        src: "../files/{{ keys_dir }}/sudo_authorized_keys"
+        dest: /etc/security/sudo_authorized_keys
+        owner: root
+        group: root
+        mode: "0644"

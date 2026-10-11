@@ -1,0 +1,40 @@
+---
+- name: Audit sshd - password login and root access
+  hosts: all
+  gather_facts: false
+  become: true                       # sshd -T needs root
+  tasks:
+    - name: Read effective sshd config
+      ansible.builtin.command: sshd -T
+      register: sshd_cfg
+      changed_when: false            # read-only, changes nothing
+
+    - name: Extract the settings we check
+      ansible.builtin.set_fact:
+        pw_auth: "{{ sshd_cfg.stdout | regex_search('(?m)^passwordauthentication (\\S+)', '\\1') | first }}"
+        root_login: "{{ sshd_cfg.stdout | regex_search('(?m)^permitrootlogin (\\S+)', '\\1') | first }}"
+        kbd_auth: "{{ sshd_cfg.stdout | regex_search('(?m)^kbdinteractiveauthentication (\\S+)', '\\1') | default(['n/a'], true) | first }}"
+
+    - name: Fleet summary
+      ansible.builtin.debug:
+        msg: >-
+          {{ item }}:
+          password={{ hostvars[item].pw_auth }},
+          root={{ hostvars[item].root_login }},
+          kbd={{ hostvars[item].kbd_auth }}
+          {{ '  <-- PROBLEM' if (hostvars[item].pw_auth == 'yes'
+                                 or hostvars[item].kbd_auth == 'yes'
+                                 or hostvars[item].root_login == 'yes') else '' }}
+      loop: "{{ ansible_play_hosts | sort }}"
+      run_once: true                 # print once, not on every host
+
+    - name: Fail if any host is misconfigured
+      ansible.builtin.assert:
+        that:
+          - hostvars[item].pw_auth != 'yes'
+          - hostvars[item].kbd_auth != 'yes'
+          - hostvars[item].root_login != 'yes'
+        fail_msg: "{{ item }}: insecure sshd settings"
+        quiet: true
+      loop: "{{ ansible_play_hosts | sort }}"
+      run_once: true

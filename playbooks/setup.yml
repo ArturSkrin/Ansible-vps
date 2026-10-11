@@ -1,0 +1,148 @@
+- name: Bootstrap a fresh VPS (run once, as root or the provider's initial user)
+  hosts: all
+  become: true
+
+  vars:
+    deploy_user: deploy
+
+  vars_prompt:
+    - name: deploy_password
+      prompt: "Sudo password for the deploy user"
+      private: true
+      confirm: true
+      encrypt: sha512_crypt
+      salt_size: 16
+
+  tasks:
+    - name: Stop if this host has no key set
+      ansible.builtin.assert:
+        that: keys_dir is defined
+        fail_msg: "{{ inventory_hostname }} is not in a group with keys_dir (add it to group_vars)"
+
+    # ---------------- USER ----------------
+    - name: Create deploy user with sudo
+      ansible.builtin.user:
+        name: "{{ deploy_user }}"
+        shell: /bin/bash
+        create_home: true
+        groups: sudo
+        append: true
+        password: "{{ deploy_password }}"
+        update_password: on_create     # set only when the user is created; re-runs keep the current password
+
+    - name: Create .ssh dir
+      ansible.builtin.file:
+        path: "/home/{{ deploy_user }}/.ssh"
+        state: directory
+        owner: "{{ deploy_user }}"
+        group: "{{ deploy_user }}"
+        mode: "0700"
+
+    - name: Login keys for deploy
+      ansible.builtin.copy:
+        src: "../files/{{ keys_dir }}/authorized_keys"
+        dest: "/home/{{ deploy_user }}/.ssh/authorized_keys"
+        owner: "{{ deploy_user }}"
+        group: "{{ deploy_user }}"
+        mode: "0600"
+
+    - name: Add aliases to bashrc
+      ansible.builtin.blockinfile:
+        path: /etc/bash.bashrc
+        marker: "# {mark} ANSIBLE MANAGED ALIASES"
+        block: |
+          alias ll='ls -alh --color'
+          alias firewall='sudo iptables -v -n -L --line-number'
+
+    # ---------------- DOCKER ----------------
+    - name: Install dependencies
+      ansible.builtin.apt:
+        name: [ca-certificates, curl, gnupg]
+        state: present
+        update_cache: true
+        lock_timeout: 90               # wait for unattended-upgrades, then fail
+
+    - name: Create keyrings dir
+      ansible.builtin.file:
+        path: /etc/apt/keyrings
+        state: directory
+        mode: "0755"
+
+    - name: Download Docker GPG key
+      ansible.builtin.get_url:
+        url: https://download.docker.com/linux/ubuntu/gpg
+        dest: /etc/apt/keyrings/docker.asc
+        mode: "0644"
+
+    - name: Add Docker repo
+      ansible.builtin.copy:
+        dest: /etc/apt/sources.list.d/docker.sources
+        mode: "0644"
+        content: |
+          Types: deb
+          URIs: https://download.docker.com/linux/ubuntu
+          Suites: {{ ansible_distribution_release }}
+          Components: stable
+          Signed-By: /etc/apt/keyrings/docker.asc
+
+    - name: Install Docker
+      ansible.builtin.apt:
+        name: [docker-ce, docker-ce-cli, containerd.io, docker-buildx-plugin, docker-compose-plugin]
+        state: present
+        update_cache: true
+        lock_timeout: 90
+
+    - name: Ensure Docker is enabled and running
+      ansible.builtin.service:
+        name: docker
+        state: started
+        enabled: true
+
+    - name: Add deploy to docker group
+      ansible.builtin.user:
+        name: "{{ deploy_user }}"
+        groups: docker
+        append: true
+
+    - name: Check that Docker works
+      ansible.builtin.command: docker run --rm hello-world
+      changed_when: false
+
+    # ---------------- SSH HARDENING ----------------
+    - name: SSH hardening drop-in (00- is read before 50-cloud-init and wins)
+      ansible.builtin.copy:
+        dest: /etc/ssh/sshd_config.d/00-hardening.conf
+        mode: "0644"
+        content: |
+          PermitRootLogin no
+          PasswordAuthentication no
+          KbdInteractiveAuthentication no
+          PubkeyAuthentication yes
+      notify: Restart SSH
+
+    - name: Validate sshd config before restart
+      ansible.builtin.command: sshd -t
+      changed_when: false
+      check_mode: false
+
+    - name: Restart SSH now
+      ansible.builtin.meta: flush_handlers
+
+    - name: Read effective sshd settings
+      ansible.builtin.command: sshd -T
+      register: sshd_effective
+      changed_when: false
+      check_mode: false
+
+    - name: Fail if hardening is not really applied
+      ansible.builtin.assert:
+        that:
+          - "'passwordauthentication no' in sshd_effective.stdout"
+          - "'permitrootlogin no' in sshd_effective.stdout"
+        fail_msg: "SSH hardening NOT applied on {{ inventory_hostname }}"
+
+  handlers:
+    - name: Restart SSH
+      ansible.builtin.service:
+        name: ssh
+        state: restarted

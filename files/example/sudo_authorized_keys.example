@@ -1,0 +1,3 @@
+# Keys allowed to use SUDO without a password (via SSH agent). Usually only admins.
+# A key here must also be in authorized_keys, otherwise it cannot log in at all.
+# ssh-ed25519 AAAA... you@laptop

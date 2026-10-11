@@ -1,6 +1,8 @@
 # Real inventory:
 inventory/*
 !inventory/hosts.ini.example
+!inventory/group_vars/
+inventory/group_vars/*
 !inventory/group_vars/example.yml
 
 # Real SSH public keys

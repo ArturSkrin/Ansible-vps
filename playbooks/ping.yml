@@ -1,0 +1,16 @@
+---
+- name: Check connectivity to servers
+  hosts: all
+  gather_facts: false          # no facts needed, only the connection
+  tasks:
+    - name: Ping (SSH + Python on the host)
+      ansible.builtin.ping:
+
+    - name: Who am I on the server
+      ansible.builtin.command: whoami
+      register: whoami_out
+      changed_when: false      # read-only command
+
+    - name: Show result
+      ansible.builtin.debug:
+        msg: "{{ inventory_hostname }}: {{ whoami_out.stdout }}"

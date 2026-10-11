@@ -1,0 +1,10 @@
+# Copy to inventory/hosts.ini and put your servers here.
+# 203.0.113.0/24 is a documentation-only range (RFC 5737), replace with real IPs.
+
+[example]
+web-01 ansible_host=203.0.113.10
+web-02 ansible_host=203.0.113.11 ansible_user=admin   # per-host user overrides the group default
+
+[example:vars]
+ansible_user=deploy
+ansible_ssh_private_key_file=~/.ssh/id_ed25519

@@ -1,0 +1,4 @@
+# Keys allowed to LOG IN as the deploy user. One public key per line.
+# Copy this folder to files/<keys_dir>/ and rename the files without .example
+# ssh-ed25519 AAAA... you@laptop
+# ssh-ed25519 AAAA... ci-deploy

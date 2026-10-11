@@ -1,0 +1,93 @@
+- name: SSH hardening, sudo via SSH agent, rotate user password
+  hosts: all
+  become: true
+
+  vars:
+    deploy_user: "{{ ansible_user }}"   # the user Ansible connects as on this host
+
+  vars_prompt:
+    - name: deploy_password
+      prompt: "New sudo password for the connection user"
+      private: true
+      confirm: true
+      encrypt: sha512_crypt
+      salt_size: 16
+
+  tasks:
+    # ---------------- SSH ----------------
+    - name: SSH hardening drop-in (00- is read before 50-cloud-init and wins)
+      ansible.builtin.copy:
+        dest: /etc/ssh/sshd_config.d/00-hardening.conf
+        mode: "0644"
+        content: |
+          PermitRootLogin no
+          PasswordAuthentication no
+          KbdInteractiveAuthentication no
+          PubkeyAuthentication yes
+      notify: Restart SSH
+
+    - name: Validate sshd config before restart
+      ansible.builtin.command: sshd -t
+      changed_when: false
+      check_mode: false
+
+    - name: Restart SSH now
+      ansible.builtin.meta: flush_handlers
+
+    - name: Read effective sshd settings
+      ansible.builtin.command: sshd -T
+      register: sshd_effective
+      changed_when: false
+      check_mode: false
+
+    - name: Fail if hardening is not really applied
+      ansible.builtin.assert:
+        that:
+          - "'passwordauthentication no' in sshd_effective.stdout"
+          - "'permitrootlogin no' in sshd_effective.stdout"
+          - "'kbdinteractiveauthentication no' in sshd_effective.stdout"
+        fail_msg: "SSH hardening NOT applied on {{ inventory_hostname }}"
+
+    # ---------------- SUDO BY SSH KEY ----------------
+    - name: Install pam_ssh_agent_auth
+      ansible.builtin.apt:
+        name: libpam-ssh-agent-auth
+        state: present
+        update_cache: true
+        lock_timeout: 90               # wait for unattended-upgrades, then fail
+
+    - name: Read sudo version
+      ansible.builtin.command: sudo -V
+      register: sudo_v
+      changed_when: false
+      check_mode: false
+
+    - name: Sudoers for SSH agent auth (noninteractive_auth only where sudo supports it)
+      ansible.builtin.copy:
+        dest: /etc/sudoers.d/10-ssh-agent-auth
+        mode: "0440"
+        content: |
+          Defaults env_keep += "SSH_AUTH_SOCK"
+          {% if (sudo_v.stdout | regex_search('Sudo version ([0-9.]+)', '\\1') | first) is version('1.9.10', '>=') %}
+          Defaults noninteractive_auth
+          {% endif %}
+        validate: visudo -cf %s
+
+    - name: Sudo checks the SSH agent key first, password stays as fallback
+      ansible.builtin.lineinfile:
+        path: /etc/pam.d/sudo
+        regexp: '^auth\s+sufficient\s+pam_ssh_agent_auth\.so'
+        line: "auth sufficient pam_ssh_agent_auth.so file=/etc/security/sudo_authorized_keys"
+        insertafter: '^#%PAM-1.0'
+
+    # ---------------- PASSWORD (last) ----------------
+    - name: Set new password for the connection user
+      ansible.builtin.user:
+        name: "{{ deploy_user }}"
+        password: "{{ deploy_password }}"
+
+  handlers:
+    - name: Restart SSH
+      ansible.builtin.service:
+        name: ssh
+        state: restarted
