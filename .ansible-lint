@@ -3,3 +3,4 @@
 # and the files are never edited by hand.
 exclude_paths:
   - roles/argocd/files/repos/
+  - roles/cloudflared/files/tunnel-credentials.yaml

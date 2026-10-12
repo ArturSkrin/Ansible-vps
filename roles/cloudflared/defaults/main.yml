@@ -1,0 +1,22 @@
+---
+# Image tag of cloudflare/cloudflared (pinned, not "latest").
+cloudflared_version: "2026.10.0"
+
+cloudflared_namespace: cloudflared
+cloudflared_replicas: 2
+
+# Set these in inventory group_vars (kept out of this public repo):
+#   cloudflared_tunnel_id: "<uuid>"
+#   cloudflared_ingress:
+#     - hostname: example.com
+#       service: http://traefik.kube-system.svc.cluster.local:80
+cloudflared_tunnel_id: ""
+cloudflared_ingress: []
+
+# Rendered into the ConfigMap. The last rule must be a catch-all.
+cloudflared_config:
+  tunnel: "{{ cloudflared_tunnel_id }}"
+  credentials-file: /etc/cloudflared/creds/credentials.json
+  metrics: 0.0.0.0:2000
+  no-autoupdate: true
+  ingress: "{{ cloudflared_ingress + [{'service': 'http_status:404'}] }}"

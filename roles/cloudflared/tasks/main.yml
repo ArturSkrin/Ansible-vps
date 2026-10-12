@@ -1,0 +1,48 @@
+---
+- name: Check that the tunnel is configured in inventory
+  ansible.builtin.assert:
+    that:
+      - cloudflared_tunnel_id | length > 0
+      - cloudflared_ingress | length > 0
+    fail_msg: "Set cloudflared_tunnel_id and cloudflared_ingress in inventory group_vars"
+
+# The namespace must exist before the SealedSecret, or the secret cannot be created in it.
+- name: Deploy cloudflared namespace
+  ansible.builtin.template:
+    src: namespace.yaml.j2
+    dest: /var/lib/rancher/k3s/server/manifests/cloudflared-namespace.yaml
+    owner: root
+    group: root
+    mode: "0600"
+
+- name: Wait for the namespace
+  ansible.builtin.command: k3s kubectl get namespace {{ cloudflared_namespace }}
+  register: cloudflared_ns_check
+  until: cloudflared_ns_check.rc == 0
+  retries: 12
+  delay: 5
+  changed_when: false
+
+- name: Deploy sealed tunnel credentials
+  ansible.builtin.copy:
+    src: tunnel-credentials.yaml
+    dest: /var/lib/rancher/k3s/server/manifests/cloudflared-credentials.yaml
+    owner: root
+    group: root
+    mode: "0600"
+
+- name: Deploy cloudflared ConfigMap and Deployment
+  ansible.builtin.template:
+    src: cloudflared.yaml.j2
+    dest: /var/lib/rancher/k3s/server/manifests/cloudflared.yaml
+    owner: root
+    group: root
+    mode: "0600"
+
+- name: Wait for cloudflared to be ready
+  ansible.builtin.command: k3s kubectl -n {{ cloudflared_namespace }} rollout status deployment/cloudflared --timeout=30s
+  register: cloudflared_rollout
+  until: cloudflared_rollout.rc == 0
+  retries: 20
+  delay: 15
+  changed_when: false
