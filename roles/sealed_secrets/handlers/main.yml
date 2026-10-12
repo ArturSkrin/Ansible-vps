@@ -1,0 +1,7 @@
+---
+# The controller loads keys only at startup.
+- name: Restart sealed-secrets controller
+  ansible.builtin.command: k3s kubectl -n kube-system rollout restart deployment/sealed-secrets-controller
+  changed_when: true
+  # On the very first run the deployment does not exist yet: nothing to restart.
+  failed_when: false
