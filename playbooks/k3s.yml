@@ -1,6 +1,7 @@
 ---
-- name: Install k3s server
+- name: Install k3s server with Argo CD
   hosts: k3s_servers
   become: true
   roles:
     - k3s
+    - argocd

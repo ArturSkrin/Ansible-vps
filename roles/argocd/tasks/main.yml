@@ -1,0 +1,25 @@
+---
+# The manifests directory is created by the k3s role, so k3s must run first.
+- name: Deploy Argo CD HelmChart manifest
+  ansible.builtin.template:
+    src: argocd-helmchart.yaml.j2
+    dest: /var/lib/rancher/k3s/server/manifests/argocd.yaml
+    owner: root
+    group: root
+    mode: "0600"
+
+# helm-controller needs time to pull the chart and create workloads,
+# so the objects may not exist yet on the first attempts: retry.
+- name: Wait for Argo CD components to be ready
+  ansible.builtin.command: >-
+    k3s kubectl -n {{ argocd_namespace }}
+    rollout status {{ item }} --timeout=30s
+  register: argocd_rollout
+  until: argocd_rollout.rc == 0
+  retries: 20
+  delay: 15
+  changed_when: false
+  loop:
+    - deployment/argocd-server
+    - deployment/argocd-repo-server
+    - statefulset/argocd-application-controller

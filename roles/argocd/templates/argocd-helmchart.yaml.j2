@@ -1,0 +1,16 @@
+# {{ ansible_managed }}
+# Installed by the k3s built-in helm-controller.
+# Changing version or values here triggers `helm upgrade` automatically.
+apiVersion: helm.cattle.io/v1
+kind: HelmChart
+metadata:
+  name: argo-cd
+  namespace: kube-system
+spec:
+  repo: https://argoproj.github.io/argo-helm
+  chart: argo-cd
+  version: "{{ argocd_chart_version }}"
+  targetNamespace: {{ argocd_namespace }}
+  createNamespace: true
+  valuesContent: |-
+{{ argocd_values | to_nice_yaml(indent=2) | indent(4, true) }}
