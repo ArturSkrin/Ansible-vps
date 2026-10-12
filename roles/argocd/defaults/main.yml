@@ -1,0 +1,16 @@
+---
+# Version of the argo-cd Helm chart (not the Argo CD app version).
+# To upgrade: change this line and run the playbook again.
+argocd_chart_version: "10.10.2"
+
+argocd_namespace: argocd
+
+# Helm values for the argo-cd chart.
+argocd_values:
+  # Standard resource names (argocd-server, argocd-repo-server, ...)
+  # instead of "<release>-argocd-*", so docs and checks work as is.
+  fullnameOverride: argocd
+  dex:
+    enabled: false        # no SSO for now: log in with the local admin user
+  notifications:
+    enabled: false        # will enable later for Telegram alerts
