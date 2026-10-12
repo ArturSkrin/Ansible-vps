@@ -36,13 +36,11 @@ The sudo key file is owned by root, so a user cannot add keys to escalate. The p
 
 Design choices:
 
-- **No public ports except SSH.** ServiceLB is disabled and Traefik is ClusterIP: public traffic is designed to arrive
-  through Cloudflare Tunnel, an outbound connection from the cluster. The Kubernetes API and the Argo CD UI
-  are reached through SSH tunnels only.
+- **No public ports except SSH.** ServiceLB is disabled and Traefik is ClusterIP.
+  The Kubernetes API and the Argo CD UI are reached through SSH tunnels only.
 - **Everything pinned.** k3s and Argo CD chart versions are role variables; an upgrade is a one-line change and a re-run.
 - **Rebuildable.** Add a new host to the `k3s_servers` group and the same playbook rebuilds it.
-  Cheap VPSes fail now and then, so moving to a new server has to be routine.
-- **Works next to Docker.** Rolled out on a server with a live Docker Compose stack, which keeps serving during the migration.
+- **Works next to Docker.** Rolled out on a server with a live Docker Compose stack, which kept serving.
 
 ```bash
 ansible-playbook playbooks/k3s.yml --limit <host>
