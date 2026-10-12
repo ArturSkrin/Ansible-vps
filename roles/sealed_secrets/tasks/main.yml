@@ -1,0 +1,36 @@
+---
+# The key goes in first: the controller reads keys only at startup.
+- name: Deploy sealing key
+  ansible.builtin.template:
+    src: sealed-secrets-key.yaml.j2
+    dest: /var/lib/rancher/k3s/server/manifests/sealed-secrets-key.yaml
+    owner: root
+    group: root
+    mode: "0600"
+  notify: Restart sealed-secrets controller
+
+# k3s applies manifests asynchronously: make sure the key is in the cluster
+# before the controller can start, or it would generate its own key.
+- name: Wait for the sealing key Secret
+  ansible.builtin.command: k3s kubectl -n kube-system get secret sealed-secrets-key
+  register: sealed_secrets_key_check
+  until: sealed_secrets_key_check.rc == 0
+  retries: 12
+  delay: 5
+  changed_when: false
+
+- name: Deploy sealed-secrets HelmChart manifest
+  ansible.builtin.template:
+    src: sealed-secrets-helmchart.yaml.j2
+    dest: /var/lib/rancher/k3s/server/manifests/sealed-secrets.yaml
+    owner: root
+    group: root
+    mode: "0600"
+
+- name: Wait for sealed-secrets controller to be ready
+  ansible.builtin.command: k3s kubectl -n kube-system rollout status deployment/sealed-secrets-controller --timeout=30s
+  register: sealed_secrets_rollout
+  until: sealed_secrets_rollout.rc == 0
+  retries: 20
+  delay: 15
+  changed_when: false
