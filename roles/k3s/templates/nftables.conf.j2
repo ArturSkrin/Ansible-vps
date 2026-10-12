@@ -1,0 +1,30 @@
+#!/usr/sbin/nft -f
+# {{ ansible_managed }}
+#
+# Host firewall. Manages ONLY the table "inet host_firewall".
+# No "flush ruleset" here: it would also delete Docker and k3s rules.
+
+# Create the table if missing, then delete it: an idempotent way to reload
+# our table atomically without touching other tables.
+table inet host_firewall
+delete table inet host_firewall
+
+table inet host_firewall {
+    chain input {
+        type filter hook input priority filter; policy drop;
+
+        # Replies to connections we started (also keeps the current SSH session alive on reload)
+        ct state established,related accept
+        ct state invalid drop
+
+        iif "lo" accept
+
+        # ICMP is needed for ping and Path MTU Discovery; ICMPv6 also for neighbor discovery
+        meta l4proto { icmp, ipv6-icmp } accept
+
+        tcp dport {{ k3s_ssh_port }} accept
+
+        # Pods and Services talk to the host (API server, CoreDNS)
+        ip saddr { {{ k3s_firewall_trusted_cidrs | join(', ') }} } accept
+    }
+}
