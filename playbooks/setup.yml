@@ -53,6 +53,7 @@
         block: |
           alias ll='ls -alh --color'
           alias firewall='sudo iptables -v -n -L --line-number'
+          alias k='sudo kubectl'
 
     # ---------------- DOCKER ----------------
     - name: Install dependencies

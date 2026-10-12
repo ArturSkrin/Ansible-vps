@@ -1,0 +1,94 @@
+---
+# Firewall goes first: 6443/10250 must never be open, even for a minute.
+- name: Firewall
+  ansible.builtin.import_tasks: firewall.yml
+  when: k3s_firewall_enabled
+
+# Download a pinned binary and verify it against the release checksum file.
+# Same checksum on the next run = nothing is downloaded (idempotent).
+- name: Install k3s binary (pinned version, sha256 verified)
+  ansible.builtin.get_url:
+    url: "{{ k3s_release_url }}/k3s"
+    checksum: "sha256:{{ k3s_release_url }}/sha256sum-amd64.txt"
+    dest: /usr/local/bin/k3s
+    owner: root
+    group: root
+    mode: "0755"
+  notify: Restart k3s
+
+# kubectl/crictl are the same k3s binary under a different name.
+# ctr is skipped on purpose: while Docker is installed, /usr/bin/ctr belongs to the system containerd.
+- name: Symlink kubectl and crictl to k3s
+  ansible.builtin.file:
+    src: /usr/local/bin/k3s
+    dest: "/usr/local/bin/{{ item }}"
+    state: link
+  loop:
+    - kubectl
+    - crictl
+
+- name: Create k3s config directory
+  ansible.builtin.file:
+    path: /etc/rancher/k3s
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Render k3s config
+  ansible.builtin.template:
+    src: config.yaml.j2
+    dest: /etc/rancher/k3s/config.yaml
+    owner: root
+    group: root
+    mode: "0600"
+  notify: Restart k3s
+
+- name: Create auto-deploy manifests directory
+  ansible.builtin.file:
+    path: /var/lib/rancher/k3s/server/manifests
+    state: directory
+    owner: root
+    group: root
+    mode: "0700"
+
+# Placed before the first k3s start, so Traefik never tries to bind host ports 80/443.
+- name: Configure bundled Traefik (ClusterIP, no host ports)
+  ansible.builtin.copy:
+    src: traefik-config.yaml
+    dest: /var/lib/rancher/k3s/server/manifests/traefik-config.yaml
+    owner: root
+    group: root
+    mode: "0600"
+
+- name: Install k3s systemd unit
+  ansible.builtin.template:
+    src: k3s.service.j2
+    dest: /etc/systemd/system/k3s.service
+    owner: root
+    group: root
+    mode: "0644"
+  notify:
+    - Reload systemd
+    - Restart k3s
+
+- name: Enable and start k3s
+  ansible.builtin.systemd_service:
+    name: k3s
+    enabled: true
+    state: started
+    daemon_reload: true
+
+# Run pending restarts now, so the checks below test the final config.
+- name: Apply pending restarts before checks
+  ansible.builtin.meta: flush_handlers
+
+# Right after start the node is not registered yet and `kubectl wait` fails,
+# so we retry for up to 2 minutes.
+- name: Wait for node to be Ready
+  ansible.builtin.command: k3s kubectl wait --for=condition=Ready node --all --timeout=30s
+  register: k3s_node_ready
+  until: k3s_node_ready.rc == 0
+  retries: 12
+  delay: 10
+  changed_when: false

@@ -1,0 +1,59 @@
+---
+- name: Firewall | install nftables
+  ansible.builtin.apt:
+    name: nftables
+    state: present
+
+# One firewall manager only: ufw must not be active next to our nftables table.
+- name: Firewall | gather service facts
+  ansible.builtin.service_facts:
+
+- name: Firewall | make sure ufw is disabled
+  ansible.builtin.systemd_service:
+    name: ufw
+    enabled: false
+    state: stopped
+  when: "'ufw.service' in ansible_facts.services"
+
+- name: Firewall | create nftables unit drop-in directory
+  ansible.builtin.file:
+    path: /etc/systemd/system/nftables.service.d
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+# Must be in place before the service ever stops, or a stop would flush Docker/k3s rules.
+- name: Firewall | override ExecStop (never flush the whole ruleset)
+  ansible.builtin.copy:
+    src: nftables-override.conf
+    dest: /etc/systemd/system/nftables.service.d/override.conf
+    owner: root
+    group: root
+    mode: "0644"
+
+# validate: syntax check with `nft -c` before the file is written.
+- name: Firewall | render ruleset
+  ansible.builtin.template:
+    src: nftables.conf.j2
+    dest: /etc/nftables.conf
+    owner: root
+    group: root
+    mode: "0644"
+    validate: nft -c -f %s
+  register: k3s_nft_conf
+
+- name: Firewall | enable and start nftables
+  ansible.builtin.systemd_service:
+    name: nftables
+    enabled: true
+    state: started
+    daemon_reload: true
+
+# Applied right now, not via a handler: handlers run later (after k3s starts),
+# and the firewall must be active before k3s opens 6443/10250.
+- name: Firewall | apply ruleset now
+  ansible.builtin.systemd_service:
+    name: nftables
+    state: reloaded
+  when: k3s_nft_conf.changed # noqa: no-handler

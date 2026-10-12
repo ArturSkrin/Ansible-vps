@@ -1,0 +1,21 @@
+---
+# Pinned version. To upgrade: change this line and run the playbook again.
+k3s_version: "v1.36.5+k3s1"
+
+# "+" in the version must be URL-encoded as %2B; urlencode does it.
+k3s_release_url: "https://github.com/k3s-io/k3s/releases/download/{{ k3s_version | urlencode }}"
+
+# Rendered as /etc/rancher/k3s/config.yaml. Any `k3s server` flag can go here.
+k3s_config:
+  write-kubeconfig-mode: "0600"   # kubeconfig is readable by root only
+  secrets-encryption: true        # Secrets are encrypted at rest (the tunnel token will live there)
+  disable:
+    - servicelb                   # no LoadBalancer needed: traffic comes in only through the tunnel
+
+k3s_firewall_enabled: true
+k3s_ssh_port: 22
+
+# Sources allowed to reach the host itself (INPUT chain).
+k3s_firewall_trusted_cidrs:
+  - 10.42.0.0/16   # pod CIDR (k3s default)
+  - 10.43.0.0/16   # service CIDR (k3s default)

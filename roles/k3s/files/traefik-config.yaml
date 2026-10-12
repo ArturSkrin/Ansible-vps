@@ -1,0 +1,12 @@
+# k3s applies every manifest in /var/lib/rancher/k3s/server/manifests/ automatically.
+# HelmChartConfig overrides values of the bundled Traefik chart.
+apiVersion: helm.cattle.io/v1
+kind: HelmChartConfig
+metadata:
+  name: traefik
+  namespace: kube-system
+spec:
+  valuesContent: |-
+    service:
+      # Reachable only inside the cluster; cloudflared talks to it, host ports 80/443 stay free
+      type: ClusterIP
