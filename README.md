@@ -7,11 +7,11 @@ A new server goes from first login to ready-to-deploy in about 5 minutes, down f
 
 | Playbook | What it does |
 |---|---|
-| `setup.yml` | Bootstraps a fresh server: `deploy` user with sudo, login keys, Docker Engine + Compose plugin, SSH hardening |
+| `setup.yml` | Bootstraps a fresh server: `deploy` user with sudo, login keys, Docker Engine + Compose plugin (optional per group), SSH hardening |
 | `keys.yml` | Syncs login and sudo keys from Git to every server; removing a key from the file revokes access everywhere in one run |
 | `harden.yml` | SSH hardening with verification, sudo via SSH agent keys, password rotation |
 | `ssh_audit.yml` | Read-only audit of the *effective* sshd config across the fleet |
-| `k3s.yml` | Single-node Kubernetes (k3s) with Argo CD: pinned versions, nftables host firewall, no public ports except SSH |
+| `k3s.yml` | Single-node Kubernetes (k3s) with Sealed Secrets, Argo CD and Cloudflare Tunnel; no public ports except SSH |
 
 ## How access works
 
@@ -27,32 +27,35 @@ The sudo key file is owned by root, so a user cannot add keys to escalate. The p
 
 ## k3s server
 
-`playbooks/k3s.yml` turns a server into a single-node k3s host with Argo CD in one run.
+`playbooks/k3s.yml` turns a server into a single-node k3s host that runs apps straight from Git.
+See [ARCHITECTURE.md](ARCHITECTURE.md) for the full picture.
 
 | Role | What it does |
 |---|---|
 | `k3s` | nftables host firewall, k3s binary pinned and verified by sha256, own systemd unit and config, Traefik as ClusterIP |
-| `argocd` | Argo CD from the official Helm chart, installed by the k3s built-in helm-controller (no helm binary needed) |
+| `sealed_secrets` | Sealed Secrets controller with our own sealing key, so secrets in Git survive a rebuild |
+| `argocd` | Argo CD from the official Helm chart, sealed credentials for private repos, Applications from inventory |
+| `cloudflared` | Cloudflare Tunnel connector (2 replicas); routing rules from inventory |
 
 Design choices:
 
-- **No public ports except SSH.** ServiceLB is disabled and Traefik is ClusterIP.
+- **No public ports except SSH.** Public traffic comes through Cloudflare Tunnel, an outbound connection
+  from the cluster, so the origin IP is not exposed and no certificates live on the server.
   The Kubernetes API and the Argo CD UI are reached through SSH tunnels only.
-- **Everything pinned.** k3s and Argo CD chart versions are role variables; an upgrade is a one-line change and a re-run.
-- **Rebuildable.** Add a new host to the `k3s_servers` group and the same playbook rebuilds it.
-- **Works next to Docker.** Rolled out on a server with a live Docker Compose stack, which kept serving.
+- **Everything pinned.** k3s, chart and image versions are role variables; an upgrade is a one-line change and a re-run.
+- **Rebuildable.** Add a new host to `k3s_servers` and the same playbook rebuilds it.
+  DNS points to the tunnel, not to a server IP, so a move needs no DNS changes.
+- **Secrets in Git, encrypted.** Repo credentials and tunnel credentials are SealedSecrets;
+  the sealing key is ours and lives outside Git.
 
 ```bash
-ansible-playbook playbooks/k3s.yml --limit <host>
+ansible-playbook playbooks/k3s.yml --limit <host>                  # whole server
+ansible-playbook playbooks/k3s.yml --limit <host> --tags argocd    # one role
 
 # Cluster access from the control node (nothing exposed to the internet)
 ssh <host> 'sudo cat /etc/rancher/k3s/k3s.yaml' > ~/.kube/<host>.yaml
 ssh -fN -L 6443:127.0.0.1:6443 <host>
 KUBECONFIG=~/.kube/<host>.yaml kubectl get nodes
-
-# Argo CD UI: run on the server, then open https://localhost:8080 through an SSH tunnel
-sudo kubectl -n argocd port-forward svc/argocd-server 8080:443
-ssh -N -L 8080:127.0.0.1:8080 <host>
 ```
 
 ## Problems found and fixed on a real fleet
@@ -81,7 +84,7 @@ ansible-playbook playbooks/setup.yml  --limit <host> -e ansible_user=root
 ansible-playbook playbooks/keys.yml   --limit <host> -K
 ansible-playbook playbooks/harden.yml --limit <host> -K
 
-# Optional: make it a k3s server (host must be in the k3s_servers group)
+# Optional: make it a k3s server (host in the k3s_servers group, setup_install_docker: false)
 ansible-playbook playbooks/k3s.yml --limit <host>
 
 # Day to day
@@ -91,11 +94,11 @@ ansible-playbook playbooks/ssh_audit.yml               # audit, no sudo password
 ```
 
 Requirements: Ansible 2.15+, `passlib` on the control node, Ubuntu 22.04/24.04 targets, an SSH agent with your key loaded (`ForwardAgent` is set in `ansible.cfg`).
-Lint: `ansible-lint` (runs in CI on every push and pull request).
+For `k3s.yml`: `kubeseal` on the control node to create SealedSecrets. Lint: `ansible-lint`, runs in CI on every push and pull request.
 
 ## Security notes
 
-- No secrets in Git: inventory, host names and keys are gitignored; passwords are prompted at runtime
+- No secrets in Git in plain text: inventory, host names and keys are gitignored; passwords are prompted at runtime; cluster secrets are SealedSecrets
 - Every config change is validated before it is applied (`sshd -t`, `visudo -cf`, `nft -c`)
 - k3s hosts: default-drop host firewall; the Kubernetes API and kubelet are not reachable from the internet (checked from outside)
 - Agent forwarding is enabled only for hosts in this inventory: root on a server can use a forwarded agent while you are connected
