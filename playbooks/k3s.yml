@@ -1,9 +1,13 @@
 ---
-- name: Install k3s server with Argo CD
+- name: Install k3s server with Sealed Secrets, Argo CD and Cloudflare Tunnel
   hosts: k3s_servers
   become: true
   roles:
-    - k3s
-    - sealed_secrets
-    - argocd
-    - cloudflared
+    - role: k3s
+      tags: k3s
+    - role: sealed_secrets
+      tags: sealed_secrets
+    - role: argocd
+      tags: argocd
+    - role: cloudflared
+      tags: cloudflared

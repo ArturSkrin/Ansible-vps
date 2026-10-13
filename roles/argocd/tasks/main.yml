@@ -34,3 +34,11 @@
     group: root
     mode: "0600"
   loop: "{{ lookup('ansible.builtin.fileglob', 'repos/*.yaml', wantlist=True) }}"
+- name: Deploy Argo CD applications
+  ansible.builtin.template:
+    src: applications.yaml.j2
+    dest: /var/lib/rancher/k3s/server/manifests/argocd-applications.yaml
+    owner: root
+    group: root
+    mode: "0600"
+  when: argocd_apps | length > 0

@@ -14,3 +14,11 @@ argocd_values:
     enabled: false        # no SSO for now: log in with the local admin user
   notifications:
     enabled: false        # will enable later for Telegram alerts
+# Applications to deploy from Git. Set in inventory group_vars:
+#   argocd_apps:
+#     - name: my-app
+#       repo_url: git@github.com:owner/repo.git
+#       path: k8s
+#       revision: main
+#       namespace: my-app
+argocd_apps: []
