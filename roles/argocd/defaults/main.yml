@@ -14,6 +14,7 @@ argocd_values:
     enabled: false        # no SSO for now: log in with the local admin user
   notifications:
     enabled: false        # will enable later for Telegram alerts
+
 # Applications to deploy from Git. Set in inventory group_vars:
 #   argocd_apps:
 #     - name: my-app
@@ -22,3 +23,6 @@ argocd_values:
 #       revision: main
 #       namespace: my-app
 argocd_apps: []
+
+# Sealed credentials for private app repos of this cluster (clusters/<cluster_name>/repos/)
+argocd_repo_credentials_dir: "{{ playbook_dir | dirname }}/clusters/{{ cluster_name }}/repos"
