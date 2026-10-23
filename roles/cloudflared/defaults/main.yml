@@ -20,3 +20,6 @@ cloudflared_config:
   metrics: 0.0.0.0:2000
   no-autoupdate: true
   ingress: "{{ cloudflared_ingress + [{'service': 'http_status:404'}] }}"
+
+# Sealed tunnel credentials of this cluster (clusters/<cluster_name>/)
+cloudflared_credentials_file: "{{ playbook_dir | dirname }}/clusters/{{ cluster_name }}/tunnel-credentials.yaml"

@@ -2,9 +2,15 @@
 - name: Check that the tunnel is configured in inventory
   ansible.builtin.assert:
     that:
+      - cluster_name is defined
       - cloudflared_tunnel_id | length > 0
       - cloudflared_ingress | length > 0
-    fail_msg: "Set cloudflared_tunnel_id and cloudflared_ingress in inventory group_vars"
+      # Every rule needs both keys; a rule without hostname would catch all traffic
+      - cloudflared_ingress | rejectattr('hostname', 'defined') | list | length == 0
+      - cloudflared_ingress | rejectattr('service', 'defined') | list | length == 0
+    fail_msg: >-
+      Set cluster_name, cloudflared_tunnel_id and cloudflared_ingress in inventory group_vars.
+      Each ingress rule must have both 'hostname' and 'service'.
 
 # The namespace must exist before the SealedSecret, or the secret cannot be created in it.
 - name: Deploy cloudflared namespace
@@ -23,9 +29,10 @@
   delay: 5
   changed_when: false
 
+# Credentials come from clusters/<cluster_name>/: every cluster has its own tunnel.
 - name: Deploy sealed tunnel credentials
   ansible.builtin.copy:
-    src: tunnel-credentials.yaml
+    src: "{{ cloudflared_credentials_file }}"
     dest: /var/lib/rancher/k3s/server/manifests/cloudflared-credentials.yaml
     owner: root
     group: root

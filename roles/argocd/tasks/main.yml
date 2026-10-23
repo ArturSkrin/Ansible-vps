@@ -25,6 +25,7 @@
     - statefulset/argocd-application-controller
 
 # Repository credentials as SealedSecrets: safe in Git, decrypted only in the cluster.
+# They come from clusters/<cluster_name>/repos/: each cluster gets access only to its own apps.
 # Needs the sealed_secrets role to run first.
 - name: Deploy sealed repository credentials
   ansible.builtin.copy:
@@ -33,7 +34,8 @@
     owner: root
     group: root
     mode: "0600"
-  loop: "{{ lookup('ansible.builtin.fileglob', 'repos/*.yaml', wantlist=True) }}"
+  loop: "{{ lookup('ansible.builtin.fileglob', argocd_repo_credentials_dir ~ '/*.yaml', wantlist=True) }}"
+
 - name: Deploy Argo CD applications
   ansible.builtin.template:
     src: applications.yaml.j2
