@@ -7,8 +7,8 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: {{ daedalus_repo_url }}
-    targetRevision: {{ daedalus_revision }}
+    repoURL: {{ daedalus_agent_repo_url }}
+    targetRevision: {{ daedalus_agent_revision }}
     path: k8s/agent
   destination:
     server: https://kubernetes.default.svc
