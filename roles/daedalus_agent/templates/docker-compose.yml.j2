@@ -12,9 +12,13 @@ services:
       ADAPTER_CLUSTER: docker-compose
       DOCKER_URL: http://docker-proxy:2375
       CGROUP_ROOT: /host/cgroup
+      HOST_METRICS: "1"
+      HOST_DISK: /host/disk
     volumes:
       - agent-data:/data
       - /sys/fs/cgroup:/host/cgroup:ro
+      # one file on the root filesystem: statvfs on it measures the whole disk, and no other host file is visible
+      - /etc/hostname:/host/disk:ro
     ports:
       - "{{ wireguard_address }}:9000:9000"
     depends_on:
