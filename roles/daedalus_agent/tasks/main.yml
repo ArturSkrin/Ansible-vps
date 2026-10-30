@@ -1,0 +1,38 @@
+---
+# k3s: hand the agent to Argo CD through the k3s auto-deploy folder, like the other roles do.
+# Argo then keeps it in sync with Git; this role is not needed again until the revision changes.
+- name: Agent in k3s (Argo CD Application)
+  when: "'k3s_servers' in group_names"
+  ansible.builtin.template:
+    src: application.yaml.j2
+    dest: /var/lib/rancher/k3s/server/manifests/daedalus-agent.yaml
+    owner: root
+    group: root
+    mode: "0600"
+
+- name: Agent in Docker (compose)
+  when: "'k3s_servers' not in group_names"
+  block:
+    - name: Docker | create {{ daedalus_agent_dir }}
+      ansible.builtin.file:
+        path: "{{ daedalus_agent_dir }}"
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+
+    - name: Docker | render compose file
+      ansible.builtin.template:
+        src: docker-compose.yml.j2
+        dest: "{{ daedalus_agent_dir }}/docker-compose.yml"
+        owner: root
+        group: root
+        mode: "0644"
+
+    # --pull always: a branch tag moves, so a re-run picks up the latest image
+    - name: Docker | start or update
+      ansible.builtin.command: docker compose up -d --pull always --remove-orphans
+      args:
+        chdir: "{{ daedalus_agent_dir }}"
+      register: daedalus_agent_up
+      changed_when: "'Started' in daedalus_agent_up.stderr or 'Recreated' in daedalus_agent_up.stderr"

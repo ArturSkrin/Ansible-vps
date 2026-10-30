@@ -1,0 +1,58 @@
+---
+- name: Stop if the tunnel is not described in the inventory
+  ansible.builtin.assert:
+    that:
+      - wireguard_address is defined
+      - wireguard_hub is defined
+      - wireguard_hub in groups['wireguard']
+    fail_msg: "{{ inventory_hostname }}: set wireguard_address on the host and wireguard_hub for the group"
+
+- name: Install wireguard-tools (the module is in the Ubuntu kernel)
+  ansible.builtin.apt:
+    name: wireguard-tools
+    state: present
+    update_cache: true
+    lock_timeout: 90
+
+- name: Create /etc/wireguard
+  ansible.builtin.file:
+    path: /etc/wireguard
+    state: directory
+    owner: root
+    group: root
+    mode: "0700"
+
+# Generated on the host, once. It never leaves it: not in Git, not in Ansible output, not in the config file.
+- name: Generate the private key
+  ansible.builtin.shell: umask 077 && wg genkey > /etc/wireguard/{{ wireguard_interface }}.key
+  args:
+    creates: /etc/wireguard/{{ wireguard_interface }}.key
+
+- name: Read the public key
+  ansible.builtin.shell: wg pubkey < /etc/wireguard/{{ wireguard_interface }}.key
+  register: wireguard_pubkey
+  changed_when: false
+  check_mode: false
+
+# The hub's config is built from every spoke's public key: run the play for the whole group, not with --limit.
+- name: Share the public key with the other hosts
+  ansible.builtin.set_fact:
+    wireguard_public_key: "{{ wireguard_pubkey.stdout }}"
+
+- name: Host firewall rules for the tunnel
+  ansible.builtin.import_tasks: firewall.yml
+
+- name: Render the tunnel config
+  ansible.builtin.template:
+    src: wg.conf.j2
+    dest: /etc/wireguard/{{ wireguard_interface }}.conf
+    owner: root
+    group: root
+    mode: "0600"
+  notify: Reload WireGuard
+
+- name: Enable and start the tunnel
+  ansible.builtin.systemd_service:
+    name: wg-quick@{{ wireguard_interface }}
+    enabled: true
+    state: started

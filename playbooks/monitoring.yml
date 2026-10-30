@@ -1,0 +1,12 @@
+---
+# Daedalus monitoring: a private WireGuard network to the monitoring centre, and an agent on every host.
+# Separate from k3s.yml on purpose: it never touches the k3s role or its firewall template.
+# Always run for the whole group: the hub's tunnel config lists every spoke's public key.
+- name: WireGuard and the Daedalus agent
+  hosts: wireguard
+  become: true
+  roles:
+    - role: wireguard
+      tags: wireguard
+    - role: daedalus_agent
+      tags: agent

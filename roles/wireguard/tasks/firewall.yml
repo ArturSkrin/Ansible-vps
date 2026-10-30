@@ -1,0 +1,47 @@
+---
+# Only where the k3s role built its host firewall (table inet host_firewall, default drop).
+# The k3s role is not touched: our rules live in their own file, and a systemd drop-in appends them to
+# host_firewall every time nftables.service starts or reloads, so a reboot or a k3s run cannot lose them.
+# A table of our own would not do: a packet dropped by host_firewall stays dropped whatever other tables say.
+- name: Firewall | is there a k3s host firewall here
+  ansible.builtin.stat:
+    path: /etc/systemd/system/nftables.service.d/override.conf
+  register: wireguard_host_firewall
+
+- name: Firewall | rules for the tunnel and the agent ports
+  when: wireguard_host_firewall.stat.exists
+  block:
+    - name: Firewall | create /etc/nftables.d
+      ansible.builtin.file:
+        path: /etc/nftables.d
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+
+    - name: Firewall | render rules
+      ansible.builtin.template:
+        src: daedalus-wireguard.nft.j2
+        dest: /etc/nftables.d/daedalus-wireguard.nft
+        owner: root
+        group: root
+        mode: "0644"
+        validate: nft -c -f %s
+      notify: Reload nftables
+
+    - name: Firewall | append them on every nftables start and reload
+      ansible.builtin.copy:
+        dest: /etc/systemd/system/nftables.service.d/daedalus-wireguard.conf
+        owner: root
+        group: root
+        mode: "0644"
+        content: |
+          # Managed by Ansible (roles/wireguard). Runs after the unit's own start/reload, which recreate host_firewall.
+          [Service]
+          ExecStartPost=/usr/sbin/nft -f /etc/nftables.d/daedalus-wireguard.nft
+          ExecReload=/usr/sbin/nft -f /etc/nftables.d/daedalus-wireguard.nft
+      notify: Reload nftables
+
+# Before wg0 comes up: a spoke must accept the hub's handshake on the first try. (meta takes no `when`.)
+- name: Firewall | apply now
+  ansible.builtin.meta: flush_handlers

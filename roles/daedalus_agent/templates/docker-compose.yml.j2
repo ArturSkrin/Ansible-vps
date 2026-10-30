@@ -1,0 +1,32 @@
+# {{ ansible_managed }}
+# The Daedalus agent: every container on this host becomes a target. Only the socket proxy sees docker.sock,
+# and it allows GET /containers/* and nothing else. Port 9000 is published on the WireGuard address only.
+services:
+  agent:
+    image: {{ daedalus_agent_image }}
+    command: ["uvicorn", "adapter.main:app", "--host", "0.0.0.0", "--port", "9000"]
+    restart: unless-stopped
+    environment:
+      ADAPTER_DISCOVER: docker
+      ADAPTER_TENANT: {{ inventory_hostname }}
+      ADAPTER_CLUSTER: docker-compose
+      DOCKER_URL: http://docker-proxy:2375
+      CGROUP_ROOT: /host/cgroup
+    volumes:
+      - agent-data:/data
+      - /sys/fs/cgroup:/host/cgroup:ro
+    ports:
+      - "{{ wireguard_address }}:9000:9000"
+    depends_on:
+      - docker-proxy
+
+  docker-proxy:
+    image: {{ daedalus_socket_proxy_image }}
+    restart: unless-stopped
+    environment:
+      CONTAINERS: 1
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+
+volumes:
+  agent-data:
