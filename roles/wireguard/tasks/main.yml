@@ -28,16 +28,18 @@
   args:
     creates: /etc/wireguard/{{ wireguard_interface }}.key
 
+# In --check on a new host there is no key (and maybe no `wg`) yet: the preview shows a placeholder instead of failing.
 - name: Read the public key
   ansible.builtin.shell: wg pubkey < /etc/wireguard/{{ wireguard_interface }}.key
   register: wireguard_pubkey
   changed_when: false
   check_mode: false
+  failed_when: wireguard_pubkey.rc != 0 and not ansible_check_mode
 
 # The hub's config is built from every spoke's public key: run the play for the whole group, not with --limit.
 - name: Share the public key with the other hosts
   ansible.builtin.set_fact:
-    wireguard_public_key: "{{ wireguard_pubkey.stdout }}"
+    wireguard_public_key: "{{ wireguard_pubkey.stdout or 'NEW-KEY-IS-GENERATED-ON-THE-FIRST-REAL-RUN' }}"
 
 - name: Host firewall rules for the tunnel
   ansible.builtin.import_tasks: firewall.yml
