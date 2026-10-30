@@ -53,8 +53,10 @@
     mode: "0600"
   notify: Reload WireGuard
 
+# In --check on a new host wireguard-tools is not installed yet, so the wg-quick@ unit does not exist to preview.
 - name: Enable and start the tunnel
   ansible.builtin.systemd_service:
     name: wg-quick@{{ wireguard_interface }}
     enabled: true
     state: started
+  ignore_errors: "{{ ansible_check_mode }}"
