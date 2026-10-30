@@ -51,7 +51,7 @@
     owner: root
     group: root
     mode: "0600"
-  notify: Reload WireGuard
+  notify: Restart WireGuard
 
 # In --check on a new host wireguard-tools is not installed yet, so the wg-quick@ unit does not exist to preview.
 - name: Enable and start the tunnel

@@ -1,9 +1,11 @@
 ---
-# reload = `wg syncconf`: peers change without taking wg0 down, so anything bound to its address keeps running
-- name: Reload WireGuard
+# restart, not reload: reload is `wg syncconf` with a config that has no PrivateKey line (the key lives in its own
+# file and is set by PostUp), and syncconf then clears the key from wg0. Restart runs PostUp again. It also applies
+# an Address change, which syncconf never does. wg0 is down for a moment; sockets bound to its address survive that.
+- name: Restart WireGuard
   ansible.builtin.systemd_service:
     name: wg-quick@{{ wireguard_interface }}
-    state: reloaded
+    state: restarted
 
 # reload recreates host_firewall from /etc/nftables.conf, then the drop-in appends our rules: no duplicates
 - name: Reload nftables
