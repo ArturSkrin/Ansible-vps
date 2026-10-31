@@ -14,11 +14,14 @@ services:
       CGROUP_ROOT: /host/cgroup
       HOST_METRICS: "1"
       HOST_DISK: /host/disk
+      CHECKS_DIR: /checks
     volumes:
       - agent-data:/data
       - /sys/fs/cgroup:/host/cgroup:ro
       # one file on the root filesystem: statvfs on it measures the whole disk, and no other host file is visible
       - /etc/hostname:/host/disk:ro
+      # results of roles/daedalus_checks (database ping, test restore), where that role runs
+      - /var/lib/daedalus-checks:/checks:ro
     ports:
       - "{{ wireguard_address }}:9000:9000"
     depends_on:

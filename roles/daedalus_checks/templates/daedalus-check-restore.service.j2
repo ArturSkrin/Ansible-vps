@@ -1,0 +1,10 @@
+# {{ ansible_managed }}
+[Unit]
+Description=Daedalus: restore the newest dump of every checked database into a throwaway container
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 /opt/daedalus-checks/daedalus_checks.py restore
+TimeoutStartSec=2h

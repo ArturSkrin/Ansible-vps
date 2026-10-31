@@ -1,0 +1,7 @@
+# {{ ansible_managed }}
+[Unit]
+Description=Daedalus: SELECT 1 on every checked database
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 /opt/daedalus-checks/daedalus_checks.py ping

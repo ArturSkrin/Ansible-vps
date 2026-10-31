@@ -1,0 +1,16 @@
+---
+# Database checks for Daedalus on the backup server: a ping of every database and a daily test restore of its newest dump.
+# The script comes from the Daedalus repo, pinned to the same revision as the agent.
+daedalus_checks_revision: feat/fleet-agent
+daedalus_checks_script_url: "https://raw.githubusercontent.com/ArturSkrin/daedalus-infra-health/{{ daedalus_checks_revision }}/checks/daedalus_checks.py"
+
+daedalus_checks_restore_image: postgres:17        # must be at least the pg_dump version that made the dumps
+daedalus_checks_ping_every: 5min
+daedalus_checks_restore_at: "*-*-* 11:00:00"     # after the 10:00 pg_dump
+
+# Set in host_vars of the backup server (gitignored: it holds connection strings):
+#   daedalus_checks_databases:
+#     - name: ccb
+#       url: "postgresql://daedalus_check:PASSWORD@ep-xxx.neon.tech/ccb?sslmode=require"
+#       backups: /var/backups/postgres/CCB
+daedalus_checks_databases: []

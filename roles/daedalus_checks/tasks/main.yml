@@ -1,0 +1,69 @@
+---
+- name: Stop if there is nothing to check
+  ansible.builtin.assert:
+    that: daedalus_checks_databases | length > 0
+    fail_msg: "{{ inventory_hostname }}: set daedalus_checks_databases in host_vars"
+
+# psql for the ping; the restore runs pg_restore inside a postgres container, so Docker is needed too
+- name: Install the PostgreSQL client
+  ansible.builtin.apt:
+    name: postgresql-client
+    state: present
+    lock_timeout: 90
+
+- name: Directories (config is root only, results are read by the agent)
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "{{ item.mode }}"
+  loop:
+    - { path: /opt/daedalus-checks, mode: "0755" }
+    - { path: /etc/daedalus-checks, mode: "0700" }
+    - { path: /var/lib/daedalus-checks, mode: "0755" }
+
+- name: The check script, from the Daedalus repo
+  ansible.builtin.get_url:
+    url: "{{ daedalus_checks_script_url }}"
+    dest: /opt/daedalus-checks/daedalus_checks.py
+    owner: root
+    group: root
+    mode: "0755"
+    force: true
+
+- name: Config with the connection strings
+  ansible.builtin.copy:
+    dest: /etc/daedalus-checks/config.json
+    owner: root
+    group: root
+    mode: "0600"
+    content: "{{ {'output': '/var/lib/daedalus-checks', 'restoreImage': daedalus_checks_restore_image,
+                  'databases': daedalus_checks_databases} | to_nice_json }}"
+  no_log: true
+
+- name: systemd units for both checks
+  ansible.builtin.template:
+    src: "{{ item }}.j2"
+    dest: "/etc/systemd/system/{{ item }}"
+    owner: root
+    group: root
+    mode: "0644"
+  loop:
+    - daedalus-check-ping.service
+    - daedalus-check-ping.timer
+    - daedalus-check-restore.service
+    - daedalus-check-restore.timer
+  notify: Reload systemd
+
+- name: Apply unit changes now
+  ansible.builtin.meta: flush_handlers
+
+- name: Enable the timers
+  ansible.builtin.systemd_service:
+    name: "{{ item }}"
+    enabled: true
+    state: started
+  loop:
+    - daedalus-check-ping.timer
+    - daedalus-check-restore.timer
