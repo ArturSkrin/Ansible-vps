@@ -42,6 +42,24 @@
           ExecReload=/usr/sbin/nft -f /etc/nftables.d/daedalus-wireguard.nft
       notify: Reload nftables
 
+# Hosts set up by hand may run ufw instead (Backup does). A spoke listens for the hub, so its port must be open;
+# the hub only dials out. WireGuard answers nothing without a known key, so the port is open to anyone.
+# Docker-published agent ports bypass ufw's input chain and need no rule here.
+- name: Firewall | is ufw active here
+  ansible.builtin.command: ufw status
+  register: wireguard_ufw
+  changed_when: false
+  failed_when: false
+  check_mode: false
+
+- name: Firewall | open the tunnel port in ufw
+  ansible.builtin.command: ufw allow {{ wireguard_port }}/udp comment 'WireGuard spoke, Daedalus'
+  register: wireguard_ufw_rule
+  changed_when: "'Skipping' not in wireguard_ufw_rule.stdout"
+  when:
+    - inventory_hostname != wireguard_hub
+    - "'Status: active' in wireguard_ufw.stdout"
+
 # Before wg0 comes up: a spoke must accept the hub's handshake on the first try. (meta takes no `when`.)
 - name: Firewall | apply now
   ansible.builtin.meta: flush_handlers
