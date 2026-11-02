@@ -1,0 +1,22 @@
+# {{ ansible_managed }}
+# Alloy on this node: pod logs and the journal, pushed to Loki on the hub over WireGuard (logs/ in the Daedalus repo).
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: daedalus-logs
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: {{ daedalus_agent_repo_url }}
+    targetRevision: {{ daedalus_agent_revision }}
+    path: logs
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: daedalus-logs
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

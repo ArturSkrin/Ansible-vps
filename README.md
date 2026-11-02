@@ -67,7 +67,7 @@ It is separate from `k3s.yml` and never touches the k3s role.
 | Role | What it does |
 |---|---|
 | `wireguard` | Hub-and-spoke tunnel `wg0`. The hub connects out and opens no port; spokes listen on UDP 51820, silent to anyone without a key. Private keys are generated on each host and never leave it. On k3s hosts it adds its rules to the host firewall through a systemd drop-in, so they survive reboots and k3s runs. |
-| `daedalus_agent` | The agent, listening on the WireGuard address only. k3s hosts: an Argo CD Application in the auto-deploy folder (port 9001). Docker hosts: docker compose in `/opt/daedalus-agent` (port 9000). |
+| `daedalus_agent` | The agent, listening on the WireGuard address only, and the log collector (Grafana Alloy) pushing to Loki on the hub through the tunnel. k3s hosts: Argo CD Applications in the auto-deploy folder (agent on port 9001, Alloy DaemonSet with pod logs and the journal). Docker hosts: docker compose in `/opt/daedalus-agent` (agent on port 9000, Alloy with container logs and the journal). |
 | `daedalus_checks` | Hosts in `[daedalus_checks]` (the backup server). Hourly: result of every backup job, the newest dump of every database (age, readable by `pg_restore --list`, size against the usual), disk forecast in days. Weekly: full test restore of every newest dump into a throwaway container. Results land in `/var/lib/daedalus-checks`, where the agent reads them. Every directory under `/var/backups/postgres` is a database; no credentials needed. |
 
 ```ini

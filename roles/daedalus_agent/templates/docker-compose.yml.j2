@@ -27,6 +27,24 @@ services:
     depends_on:
       - docker-proxy
 
+  # Container logs (through the same proxy) and the journal, pushed to Loki on the hub over WireGuard.
+  # No port published: its UI listens on the container's loopback only.
+  alloy:
+    image: {{ daedalus_agent_alloy_image }}
+    command: ["run", "--server.http.listen-addr=127.0.0.1:12345", "--storage.path=/var/lib/alloy", "/etc/alloy"]
+    restart: unless-stopped
+    environment:
+      LOKI_URL: {{ daedalus_agent_loki_url }}
+      LOG_HOST: {{ inventory_hostname }}
+    volumes:
+      - ./alloy:/etc/alloy:ro
+      - alloy-data:/var/lib/alloy
+      - /var/log/journal:/var/log/journal:ro
+      - /run/log/journal:/run/log/journal:ro
+      - /etc/machine-id:/etc/machine-id:ro
+    depends_on:
+      - docker-proxy
+
   docker-proxy:
     image: {{ daedalus_agent_socket_proxy_image }}
     restart: unless-stopped
@@ -37,3 +55,4 @@ services:
 
 volumes:
   agent-data:
+  alloy-data:

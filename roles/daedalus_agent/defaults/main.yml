@@ -1,7 +1,8 @@
 ---
-# The Daedalus monitoring agent, one per host. Needs wg0 first (roles/wireguard): it listens on the WireGuard address only.
-#   k3s hosts:    an Argo CD Application for k8s/agent of the Daedalus repo (port 9001)
-#   Docker hosts: docker compose in /opt/daedalus-agent (port 9000)
+# The Daedalus monitoring agent and log collector, one per host. Needs wg0 first (roles/wireguard): the agent
+# listens on the WireGuard address only, and logs go to Loki on the hub through the tunnel.
+#   k3s hosts:    Argo CD Applications for k8s/agent (port 9001) and logs/ (Alloy DaemonSet) of the Daedalus repo
+#   Docker hosts: docker compose in /opt/daedalus-agent (agent on port 9000, Alloy next to it)
 daedalus_agent_repo_url: https://github.com/ArturSkrin/daedalus-infra-health.git
 daedalus_agent_revision: feat/fleet-agent
 
@@ -9,3 +10,8 @@ daedalus_agent_revision: feat/fleet-agent
 daedalus_agent_image: ghcr.io/arturskrin/daedalus-infra-health-backend:feat-fleet-agent
 daedalus_agent_socket_proxy_image: tecnativa/docker-socket-proxy:0.3.0
 daedalus_agent_dir: /opt/daedalus-agent
+
+# Docker hosts: Alloy sends container logs and the journal to Loki (docker-compose.logs.yaml on the hub)
+daedalus_agent_alloy_image: grafana/alloy:v1.8.1
+daedalus_agent_alloy_url: "https://raw.githubusercontent.com/ArturSkrin/daedalus-infra-health/{{ daedalus_agent_revision }}/logs"
+daedalus_agent_loki_url: "http://{{ hostvars[wireguard_hub].wireguard_address }}:3100/loki/api/v1/push"

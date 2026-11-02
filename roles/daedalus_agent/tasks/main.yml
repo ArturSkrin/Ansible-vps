@@ -16,16 +16,40 @@
     group: root
     mode: "0600"
 
+- name: Log collector in k3s (Argo CD Application)
+  when: daedalus_agent_k3s.stat.exists
+  ansible.builtin.template:
+    src: application-logs.yaml.j2
+    dest: /var/lib/rancher/k3s/server/manifests/daedalus-logs.yaml
+    owner: root
+    group: root
+    mode: "0600"
+
 - name: Agent in Docker (compose)
   when: not daedalus_agent_k3s.stat.exists
   block:
     - name: Docker | create {{ daedalus_agent_dir }}
       ansible.builtin.file:
-        path: "{{ daedalus_agent_dir }}"
+        path: "{{ item }}"
         state: directory
         owner: root
         group: root
         mode: "0755"
+      loop:
+        - "{{ daedalus_agent_dir }}"
+        - "{{ daedalus_agent_dir }}/alloy"
+
+    # Alloy's config lives in the Daedalus repo (logs/), shared with the hub and the k3s DaemonSet
+    - name: Docker | Alloy config, from the Daedalus repo
+      ansible.builtin.get_url:
+        url: "{{ daedalus_agent_alloy_url }}/{{ item }}"
+        dest: "{{ daedalus_agent_dir }}/alloy/{{ item }}"
+        owner: root
+        group: root
+        mode: "0644"
+        force: true
+      loop: [push.alloy, docker.alloy, journal.alloy]
+      register: daedalus_agent_alloy_config
 
     - name: Docker | render compose file
       ansible.builtin.template:
@@ -42,3 +66,11 @@
         chdir: "{{ daedalus_agent_dir }}"
       register: daedalus_agent_up
       changed_when: "'Started' in daedalus_agent_up.stderr or 'Recreated' in daedalus_agent_up.stderr"
+
+    # Alloy reads its config only at start; compose does not see a change inside a mounted file
+    - name: Docker | restart Alloy on a new config
+      ansible.builtin.command: docker compose restart alloy
+      args:
+        chdir: "{{ daedalus_agent_dir }}"
+      when: daedalus_agent_alloy_config.changed # noqa: no-handler
+      changed_when: true
