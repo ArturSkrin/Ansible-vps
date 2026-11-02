@@ -1,0 +1,9 @@
+# {{ ansible_managed }}
+[Unit]
+Description=Daedalus: backup jobs, newest dumps, disk forecast
+After=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 /opt/daedalus-checks/daedalus_checks.py hourly
+TimeoutStartSec=15min

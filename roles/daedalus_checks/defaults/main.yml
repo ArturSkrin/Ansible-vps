@@ -1,16 +1,13 @@
 ---
-# Database checks for Daedalus on the backup server: a ping of every database and a daily test restore of its newest dump.
-# The script comes from the Daedalus repo, pinned to the same revision as the agent.
+# Backup checks for Daedalus on the backup server (checks/daedalus_checks.py from the Daedalus repo):
+#   hourly: result of every backup job, the newest dump of every database (age, readable, size), disk forecast
+#   weekly: full test restore of every newest dump into a throwaway postgres container
+# Every directory under daedalus_checks_postgres_dir is a database: nothing per database, no credentials.
 daedalus_checks_revision: feat/fleet-agent
 daedalus_checks_script_url: "https://raw.githubusercontent.com/ArturSkrin/daedalus-infra-health/{{ daedalus_checks_revision }}/checks/daedalus_checks.py"
 
-daedalus_checks_restore_image: postgres:17        # must be at least the pg_dump version that made the dumps
-daedalus_checks_ping_every: 5min
-daedalus_checks_restore_at: "*-*-* 11:00:00"     # after the 10:00 pg_dump
-
-# Set in host_vars of the backup server (gitignored: it holds connection strings):
-#   daedalus_checks_databases:
-#     - name: ccb
-#       url: "postgresql://daedalus_check:PASSWORD@ep-xxx.neon.tech/ccb?sslmode=require"
-#       backups: /var/backups/postgres/CCB
-daedalus_checks_databases: []
+daedalus_checks_postgres_dir: /var/backups/postgres
+daedalus_checks_jobs: [postgres-backup, file-backup, github-to-gitea-backup]   # systemd services, without .service
+daedalus_checks_max_dump_age_h: 26                 # dumps are daily
+daedalus_checks_restore_image: postgres:17         # must be at least the pg_dump version that made the dumps
+daedalus_checks_restore_at: "Sun *-*-* 12:00:00"

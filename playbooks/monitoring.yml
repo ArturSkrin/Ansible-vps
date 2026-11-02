@@ -11,9 +11,9 @@
     - role: daedalus_agent
       tags: agent
 
-# The backup server checks the databases it backs up: a ping, and a daily test restore of the newest dump.
-# Its agent (above) reads the results; connection strings live in that host's host_vars.
-- name: Database checks
+# The backup server checks its own backups: jobs, dumps, disk forecast, and a weekly test restore.
+# Its agent (above) reads the results.
+- name: Backup checks
   hosts: daedalus_checks
   become: true
   roles:

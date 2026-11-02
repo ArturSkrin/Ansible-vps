@@ -1,27 +1,15 @@
 ---
-- name: Stop if there is nothing to check
-  ansible.builtin.assert:
-    that: daedalus_checks_databases | length > 0
-    fail_msg: "{{ inventory_hostname }}: set daedalus_checks_databases in host_vars"
-
-# psql for the ping; the restore runs pg_restore inside a postgres container, so Docker is needed too
-- name: Install the PostgreSQL client
-  ansible.builtin.apt:
-    name: postgresql-client
-    state: present
-    lock_timeout: 90
-
-- name: Directories (config is root only, results are read by the agent)
+- name: Directories (results are read by the agent)
   ansible.builtin.file:
-    path: "{{ item.path }}"
+    path: "{{ item }}"
     state: directory
     owner: root
     group: root
-    mode: "{{ item.mode }}"
+    mode: "0755"
   loop:
-    - { path: /opt/daedalus-checks, mode: "0755" }
-    - { path: /etc/daedalus-checks, mode: "0700" }
-    - { path: /var/lib/daedalus-checks, mode: "0755" }
+    - /opt/daedalus-checks
+    - /etc/daedalus-checks
+    - /var/lib/daedalus-checks
 
 - name: The check script, from the Daedalus repo
   ansible.builtin.get_url:
@@ -32,17 +20,17 @@
     mode: "0755"
     force: true
 
-- name: Config with the connection strings
+- name: Config
   ansible.builtin.copy:
     dest: /etc/daedalus-checks/config.json
     owner: root
     group: root
-    mode: "0600"
-    content: "{{ {'output': '/var/lib/daedalus-checks', 'restoreImage': daedalus_checks_restore_image,
-                  'databases': daedalus_checks_databases} | to_nice_json }}"
-  no_log: true
+    mode: "0644"
+    content: "{{ {'output': '/var/lib/daedalus-checks', 'postgresDir': daedalus_checks_postgres_dir,
+                  'jobs': daedalus_checks_jobs, 'maxDumpAgeH': daedalus_checks_max_dump_age_h,
+                  'restoreImage': daedalus_checks_restore_image} | to_nice_json }}"
 
-- name: systemd units for both checks
+- name: systemd units
   ansible.builtin.template:
     src: "{{ item }}.j2"
     dest: "/etc/systemd/system/{{ item }}"
@@ -50,8 +38,8 @@
     group: root
     mode: "0644"
   loop:
-    - daedalus-check-ping.service
-    - daedalus-check-ping.timer
+    - daedalus-check-hourly.service
+    - daedalus-check-hourly.timer
     - daedalus-check-restore.service
     - daedalus-check-restore.timer
   notify: Reload systemd
@@ -65,5 +53,5 @@
     enabled: true
     state: started
   loop:
-    - daedalus-check-ping.timer
+    - daedalus-check-hourly.timer
     - daedalus-check-restore.timer
