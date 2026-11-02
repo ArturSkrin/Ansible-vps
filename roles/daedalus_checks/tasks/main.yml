@@ -30,7 +30,7 @@
                   'jobs': daedalus_checks_jobs, 'maxDumpAgeH': daedalus_checks_max_dump_age_h,
                   'restoreImage': daedalus_checks_restore_image} | to_nice_json }}"
 
-- name: systemd units
+- name: Systemd units
   ansible.builtin.template:
     src: "{{ item }}.j2"
     dest: "/etc/systemd/system/{{ item }}"
