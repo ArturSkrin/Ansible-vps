@@ -1,6 +1,6 @@
 # {{ ansible_managed }}
 # The Daedalus agent: every container on this host becomes a target. Only the socket proxy sees docker.sock,
-# and it allows GET /containers/* and nothing else. Port 9000 is published on the WireGuard address only.
+# and it allows GET /containers/* and /networks and nothing else. Port 9000 is published on the WireGuard address only.
 services:
   agent:
     image: {{ daedalus_agent_image }}
@@ -50,6 +50,8 @@ services:
     restart: unless-stopped
     environment:
       CONTAINERS: 1
+      # GET /networks: Alloy's docker discovery reads them to label containers (POST stays off)
+      NETWORKS: 1
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
 
