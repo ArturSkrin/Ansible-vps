@@ -11,7 +11,7 @@ daedalus_agent_image: ghcr.io/arturskrin/daedalus-infra-health-backend:feat-flee
 daedalus_agent_socket_proxy_image: tecnativa/docker-socket-proxy:0.3.0
 daedalus_agent_dir: /opt/daedalus-agent
 
-# Docker hosts: Alloy sends container logs and the journal to Loki (docker-compose.logs.yaml on the hub)
-daedalus_agent_alloy_image: grafana/alloy:v1.8.1
+# Docker hosts: Alloy sends container logs and the journal to Loki (docker-compose.fleet-logs.yaml on the hub)
+daedalus_agent_alloy_image: grafana/alloy:v1.20.1
 daedalus_agent_alloy_url: "https://raw.githubusercontent.com/ArturSkrin/daedalus-infra-health/{{ daedalus_agent_revision }}/logs"
 daedalus_agent_loki_url: "http://{{ hostvars[wireguard_hub].wireguard_address }}:3100/loki/api/v1/push"
