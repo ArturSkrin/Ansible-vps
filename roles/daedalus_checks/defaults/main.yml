@@ -3,7 +3,7 @@
 #   hourly: result of every backup job, the newest dump of every database (age, readable, size), disk forecast
 #   weekly: full test restore of every newest dump into a throwaway postgres container
 # Every directory under daedalus_checks_postgres_dir is a database: nothing per database, no credentials.
-daedalus_checks_revision: "{{ daedalus_version }}"     # playbooks/daedalus_version.yml
+daedalus_checks_revision: "{{ daedalus_version }}"     # playbooks/vars/daedalus_version.yml
 daedalus_checks_script_url: "https://raw.githubusercontent.com/ArturSkrin/daedalus-infra-health/{{ daedalus_checks_revision }}/checks/daedalus_checks.py"
 
 daedalus_checks_postgres_dir: /var/backups/postgres

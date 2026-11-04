@@ -82,7 +82,7 @@ CCB    wireguard_address=10.77.0.2
 wireguard_hub: Rezerv
 ```
 
-The Daedalus version is one commit sha in [playbooks/daedalus_version.yml](playbooks/daedalus_version.yml): manifests, configs and the agent image all follow it, so a server changes only when that line does.
+The Daedalus version is one commit sha in [playbooks/vars/daedalus_version.yml](playbooks/vars/daedalus_version.yml): manifests, configs and the agent image all follow it, so a server changes only when that line does.
 
 ```bash
 ansible-playbook playbooks/monitoring.yml --check --diff   # preview

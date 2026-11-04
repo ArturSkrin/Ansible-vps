@@ -5,7 +5,7 @@
 #   Docker hosts: docker compose in /opt/daedalus-agent (agent on port 9000, Alloy next to it)
 daedalus_agent_repo_url: https://github.com/ArturSkrin/daedalus-infra-health.git
 
-# daedalus_version (a commit sha) is set in playbooks/daedalus_version.yml; manifests, configs and the image follow it
+# daedalus_version (a commit sha) is set in playbooks/vars/daedalus_version.yml; manifests, configs and the image follow it
 daedalus_agent_revision: "{{ daedalus_version }}"
 
 # Docker hosts: the agent image and the socket proxy in front of docker.sock

@@ -5,7 +5,7 @@
 - name: WireGuard and the Daedalus agent
   hosts: wireguard
   become: true
-  vars_files: [daedalus_version.yml]
+  vars_files: [vars/daedalus_version.yml]
   roles:
     - role: wireguard
       tags: wireguard
@@ -17,7 +17,7 @@
 - name: Backup checks
   hosts: daedalus_checks
   become: true
-  vars_files: [daedalus_version.yml]
+  vars_files: [vars/daedalus_version.yml]
   roles:
     - role: daedalus_checks
       tags: checks
