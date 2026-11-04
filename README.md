@@ -12,6 +12,7 @@ A new server goes from first login to ready-to-deploy in about 5 minutes, down f
 | `harden.yml` | SSH hardening with verification, sudo via SSH agent keys, password rotation |
 | `ssh_audit.yml` | Read-only audit of the *effective* sshd config across the fleet |
 | `k3s.yml` | Single-node Kubernetes (k3s) with Sealed Secrets, Argo CD and Cloudflare Tunnel; no public ports except SSH |
+| `monitoring.yml` | Daedalus monitoring: private hub-and-spoke WireGuard network (`wg0`) and an agent on every host |
 
 ## How access works
 
@@ -56,6 +57,37 @@ ansible-playbook playbooks/k3s.yml --limit <host> --tags argocd    # one role
 ssh <host> 'sudo cat /etc/rancher/k3s/k3s.yaml' > ~/.kube/<host>.yaml
 ssh -fN -L 6443:127.0.0.1:6443 <host>
 KUBECONFIG=~/.kube/<host>.yaml kubectl get nodes
+```
+
+## Monitoring (Daedalus)
+
+`playbooks/monitoring.yml` connects hosts to the [Daedalus](https://github.com/ArturSkrin/daedalus-infra-health) monitoring centre.
+It is separate from `k3s.yml` and never touches the k3s role.
+
+| Role | What it does |
+|---|---|
+| `wireguard` | Hub-and-spoke tunnel `wg0`. The hub connects out and opens no port; spokes listen on UDP 51820, silent to anyone without a key. Private keys are generated on each host and never leave it. On k3s hosts it adds its rules to the host firewall through a systemd drop-in, so they survive reboots and k3s runs. |
+| `daedalus_agent` | The agent, listening on the WireGuard address only, and the log collector (Grafana Alloy) pushing to Loki on the hub through the tunnel. k3s hosts: Argo CD Applications in the auto-deploy folder (agent on port 9001, Alloy DaemonSet with pod logs and the journal). Docker hosts: docker compose in `/opt/daedalus-agent` (agent on port 9000, Alloy with container logs and the journal). |
+| `daedalus_checks` | Hosts in `[daedalus_checks]` (the backup server). Hourly: result of every backup job, the newest dump of every database (age, readable by `pg_restore --list`, size against the usual), disk forecast in days. Weekly: full test restore of every newest dump into a throwaway container. Results land in `/var/lib/daedalus-checks`, where the agent reads them. Every directory under `/var/backups/postgres` is a database; no credentials needed. |
+
+```ini
+# inventory: every host in the tunnel, hub included
+[wireguard]
+Rezerv wireguard_address=10.77.0.1
+CCB    wireguard_address=10.77.0.2
+```
+
+```yaml
+# inventory/group_vars/wireguard.yml
+wireguard_hub: Rezerv
+```
+
+The Daedalus version is one commit sha in [playbooks/vars/daedalus_version.yml](playbooks/vars/daedalus_version.yml): manifests, configs and the agent image all follow it, so a server changes only when that line does.
+
+```bash
+ansible-playbook playbooks/monitoring.yml --check --diff   # preview
+ansible-playbook playbooks/monitoring.yml                  # whole group: the hub needs every spoke's key
+ansible-playbook playbooks/monitoring.yml --tags agent     # agents only, e.g. after a new daedalus_version
 ```
 
 ## Problems found and fixed on a real fleet

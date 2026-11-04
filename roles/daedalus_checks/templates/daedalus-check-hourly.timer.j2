@@ -1,0 +1,12 @@
+# {{ ansible_managed }}
+[Unit]
+Description=Daedalus: backup checks every hour
+
+[Timer]
+OnCalendar=*-*-* *:15:00
+# the first result a minute after the timer is enabled, not at the next quarter past
+OnActiveSec=1min
+Persistent=true
+
+[Install]
+WantedBy=timers.target

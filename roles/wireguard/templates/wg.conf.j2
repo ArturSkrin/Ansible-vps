@@ -1,0 +1,25 @@
+# {{ ansible_managed }}
+[Interface]
+Address = {{ wireguard_address }}/{{ wireguard_prefix }}
+# the key stays in its own file, readable by root only
+PostUp = wg set %i private-key /etc/wireguard/%i.key
+{% if inventory_hostname != wireguard_hub %}
+ListenPort = {{ wireguard_port }}
+{% endif %}
+{% if inventory_hostname == wireguard_hub %}
+{% for host in groups['wireguard'] if host != wireguard_hub %}
+
+[Peer]
+# {{ host }}
+PublicKey = {{ hostvars[host].wireguard_public_key }}
+AllowedIPs = {{ hostvars[host].wireguard_address }}/32
+Endpoint = {{ hostvars[host].ansible_host | default(host) }}:{{ wireguard_port }}
+PersistentKeepalive = 25
+{% endfor %}
+{% else %}
+
+[Peer]
+# {{ wireguard_hub }}: the hub connects to us, so it has no Endpoint here
+PublicKey = {{ hostvars[wireguard_hub].wireguard_public_key }}
+AllowedIPs = {{ hostvars[wireguard_hub].wireguard_address }}/32
+{% endif %}

@@ -1,0 +1,12 @@
+# {{ ansible_managed }}
+# Appended to the k3s host firewall after nftables.service starts or reloads (see daedalus-wireguard.conf).
+{% set ports = wireguard_agent_ports | join(', ') %}
+{% if inventory_hostname == wireguard_hub %}
+# the tracker runs in Docker and reads this host's own k3s agent on the WireGuard address
+add rule inet host_firewall input ip saddr {{ wireguard_docker_cidr }} ip daddr {{ wireguard_address }} tcp dport { {{ ports }} } accept
+{% else %}
+# the tunnel itself; WireGuard answers nobody without a key
+add rule inet host_firewall input udp dport {{ wireguard_port }} accept
+# the agents, for the hub only
+add rule inet host_firewall input iifname "{{ wireguard_interface }}" ip saddr {{ hostvars[wireguard_hub].wireguard_address }} tcp dport { {{ ports }} } accept
+{% endif %}

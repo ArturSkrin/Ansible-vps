@@ -1,0 +1,57 @@
+---
+- name: Directories (results are read by the agent)
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  loop:
+    - /opt/daedalus-checks
+    - /etc/daedalus-checks
+    - /var/lib/daedalus-checks
+
+- name: The check script, from the Daedalus repo
+  ansible.builtin.get_url:
+    url: "{{ daedalus_checks_script_url }}"
+    dest: /opt/daedalus-checks/daedalus_checks.py
+    owner: root
+    group: root
+    mode: "0755"
+    force: true
+
+- name: Config
+  ansible.builtin.copy:
+    dest: /etc/daedalus-checks/config.json
+    owner: root
+    group: root
+    mode: "0644"
+    content: "{{ {'output': '/var/lib/daedalus-checks', 'postgresDir': daedalus_checks_postgres_dir,
+                  'jobs': daedalus_checks_jobs, 'maxDumpAgeH': daedalus_checks_max_dump_age_h,
+                  'restoreImage': daedalus_checks_restore_image} | to_nice_json }}"
+
+- name: Systemd units
+  ansible.builtin.template:
+    src: "{{ item }}.j2"
+    dest: "/etc/systemd/system/{{ item }}"
+    owner: root
+    group: root
+    mode: "0644"
+  loop:
+    - daedalus-check-hourly.service
+    - daedalus-check-hourly.timer
+    - daedalus-check-restore.service
+    - daedalus-check-restore.timer
+  notify: Reload systemd
+
+- name: Apply unit changes now
+  ansible.builtin.meta: flush_handlers
+
+- name: Enable the timers
+  ansible.builtin.systemd_service:
+    name: "{{ item }}"
+    enabled: true
+    state: started
+  loop:
+    - daedalus-check-hourly.timer
+    - daedalus-check-restore.timer

@@ -1,0 +1,41 @@
+# {{ ansible_managed }}
+# Alloy on this node: pod logs and the journal, pushed to Loki on the hub over WireGuard (logs/ in the Daedalus repo).
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: daedalus-logs
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: {{ daedalus_agent_repo_url }}
+    targetRevision: {{ daedalus_agent_revision }}
+    path: logs
+    kustomize:
+      # the host label is the inventory name, as on Docker hosts; without it Alloy would use the node name
+      patches:
+        - target:
+            kind: DaemonSet
+            name: alloy
+          patch: |-
+            apiVersion: apps/v1
+            kind: DaemonSet
+            metadata:
+              name: alloy
+            spec:
+              template:
+                spec:
+                  containers:
+                    - name: alloy
+                      env:
+                        - name: LOG_HOST
+                          value: {{ inventory_hostname | to_json }}
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: daedalus-logs
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

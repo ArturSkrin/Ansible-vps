@@ -1,0 +1,17 @@
+---
+# Hub and spokes: the hub (monitoring centre) connects out to every spoke; spokes only listen.
+# So the hub needs no open port, and it may sit behind NAT or a VPN.
+#
+# Inventory:
+#   [wireguard]                       every host in the tunnel, hub included
+#   <host> wireguard_address=10.77.0.N
+#   group_vars: wireguard_hub: <inventory name of the hub>
+wireguard_interface: wg0
+wireguard_port: 51820          # spokes listen here
+wireguard_prefix: 24           # 10.77.0.0/24
+
+# Ports of the Daedalus agents the hub reads: 9000 docker compose, 9001 k3s
+wireguard_agent_ports: [9000, 9001]
+
+# Where the hub's tracker runs in Docker and reaches its own k3s agent over a docker bridge
+wireguard_docker_cidr: 172.16.0.0/12

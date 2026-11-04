@@ -1,0 +1,24 @@
+# {{ ansible_managed }}
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: daedalus-agent
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: {{ daedalus_agent_repo_url }}
+    targetRevision: {{ daedalus_agent_revision }}
+    path: k8s/agent
+    kustomize:
+      images:
+        - {{ daedalus_agent_image }}
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: daedalus-agent
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

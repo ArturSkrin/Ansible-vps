@@ -1,0 +1,60 @@
+# {{ ansible_managed }}
+# The Daedalus agent: every container on this host becomes a target. Only the socket proxy sees docker.sock,
+# and it allows GET /containers/* and /networks and nothing else. Port 9000 is published on the WireGuard address only.
+services:
+  agent:
+    image: {{ daedalus_agent_image }}
+    command: ["uvicorn", "adapter.main:app", "--host", "0.0.0.0", "--port", "9000"]
+    restart: unless-stopped
+    environment:
+      ADAPTER_DISCOVER: docker
+      ADAPTER_TENANT: {{ inventory_hostname }}
+      ADAPTER_CLUSTER: docker-compose
+      DOCKER_URL: http://docker-proxy:2375
+      CGROUP_ROOT: /host/cgroup
+      HOST_METRICS: "1"
+      HOST_DISK: /host/disk
+      CHECKS_DIR: /checks
+    volumes:
+      - agent-data:/data
+      - /sys/fs/cgroup:/host/cgroup:ro
+      # one file on the root filesystem: statvfs on it measures the whole disk, and no other host file is visible
+      - /etc/hostname:/host/disk:ro
+      # results of roles/daedalus_checks (database ping, test restore), where that role runs
+      - /var/lib/daedalus-checks:/checks:ro
+    ports:
+      - "{{ wireguard_address }}:9000:9000"
+    depends_on:
+      - docker-proxy
+
+  # Container logs (through the same proxy) and the journal, pushed to Loki on the hub over WireGuard.
+  # No port published: its UI listens on the container's loopback only.
+  alloy:
+    image: {{ daedalus_agent_alloy_image }}
+    command: ["run", "--server.http.listen-addr=127.0.0.1:12345", "--storage.path=/var/lib/alloy", "/etc/alloy"]
+    restart: unless-stopped
+    environment:
+      LOKI_URL: {{ daedalus_agent_loki_url }}
+      LOG_HOST: {{ inventory_hostname }}
+    volumes:
+      - ./alloy:/etc/alloy:ro
+      - alloy-data:/var/lib/alloy
+      - /var/log/journal:/var/log/journal:ro
+      - /run/log/journal:/run/log/journal:ro
+      - /etc/machine-id:/etc/machine-id:ro
+    depends_on:
+      - docker-proxy
+
+  docker-proxy:
+    image: {{ daedalus_agent_socket_proxy_image }}
+    restart: unless-stopped
+    environment:
+      CONTAINERS: 1
+      # GET /networks: Alloy's docker discovery reads them to label containers (POST stays off)
+      NETWORKS: 1
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+
+volumes:
+  agent-data:
+  alloy-data:

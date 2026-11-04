@@ -1,0 +1,10 @@
+# {{ ansible_managed }}
+[Unit]
+Description=Daedalus: weekly test restore
+
+[Timer]
+OnCalendar={{ daedalus_checks_restore_at }}
+Persistent=true
+
+[Install]
+WantedBy=timers.target
