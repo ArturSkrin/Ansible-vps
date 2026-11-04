@@ -4,10 +4,12 @@
 #   k3s hosts:    Argo CD Applications for k8s/agent (port 9001) and logs/ (Alloy DaemonSet) of the Daedalus repo
 #   Docker hosts: docker compose in /opt/daedalus-agent (agent on port 9000, Alloy next to it)
 daedalus_agent_repo_url: https://github.com/ArturSkrin/daedalus-infra-health.git
-daedalus_agent_revision: feat/fleet-agent
+
+# daedalus_version (a commit sha) is set in playbooks/daedalus_version.yml; manifests, configs and the image follow it
+daedalus_agent_revision: "{{ daedalus_version }}"
 
 # Docker hosts: the agent image and the socket proxy in front of docker.sock
-daedalus_agent_image: ghcr.io/arturskrin/daedalus-infra-health-backend:feat-fleet-agent
+daedalus_agent_image: "ghcr.io/arturskrin/daedalus-infra-health-backend:{{ daedalus_version }}"
 daedalus_agent_socket_proxy_image: tecnativa/docker-socket-proxy:0.3.0
 daedalus_agent_dir: /opt/daedalus-agent
 

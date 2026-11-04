@@ -59,9 +59,9 @@
         group: root
         mode: "0644"
 
-    # --pull always: a branch tag moves, so a re-run picks up the latest image
+    # the image tag is a commit sha and never moves: a new daedalus_version means a new tag, which compose pulls
     - name: Docker | start or update
-      ansible.builtin.command: docker compose up -d --pull always --remove-orphans
+      ansible.builtin.command: docker compose up -d --remove-orphans
       args:
         chdir: "{{ daedalus_agent_dir }}"
       register: daedalus_agent_up

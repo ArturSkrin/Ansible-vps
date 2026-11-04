@@ -73,19 +73,21 @@ It is separate from `k3s.yml` and never touches the k3s role.
 ```ini
 # inventory: every host in the tunnel, hub included
 [wireguard]
-CLC-Firm wireguard_address=10.77.0.1
-CCB      wireguard_address=10.77.0.2
+Rezerv wireguard_address=10.77.0.1
+CCB    wireguard_address=10.77.0.2
 ```
 
 ```yaml
 # inventory/group_vars/wireguard.yml
-wireguard_hub: CLC-Firm
+wireguard_hub: Rezerv
 ```
+
+The Daedalus version is one commit sha in [playbooks/daedalus_version.yml](playbooks/daedalus_version.yml): manifests, configs and the agent image all follow it, so a server changes only when that line does.
 
 ```bash
 ansible-playbook playbooks/monitoring.yml --check --diff   # preview
 ansible-playbook playbooks/monitoring.yml                  # whole group: the hub needs every spoke's key
-ansible-playbook playbooks/monitoring.yml --tags agent     # agents only, e.g. after a new image
+ansible-playbook playbooks/monitoring.yml --tags agent     # agents only, e.g. after a new daedalus_version
 ```
 
 ## Problems found and fixed on a real fleet
