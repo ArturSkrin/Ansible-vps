@@ -3,4 +3,4 @@
 # Manifests, Alloy configs, the check script and the agent image all come from it (CI tags each image with its
 # commit sha), so nothing changes on a server until this line does. To update: put the new commit here and run
 # monitoring.yml. The image of a commit exists once "Build and push images" has passed for it on GitHub.
-daedalus_version: b83359543ded321700d01ac923285d140aa1300d     # acks and flapping (PR #3)
+daedalus_version: 6d92f4efe6a25855c15ff7cb15670ffc3b70613a     # who calls whom for the graph, k8s RBAC for Services (PR #8)
