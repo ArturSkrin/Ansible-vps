@@ -7,6 +7,13 @@
   become: true
   vars_files: [vars/daedalus_version.yml]
   roles:
+    # on the hub, only when a spoke is behind the public VPN (wireguard_via_vpn): up before wg0 talks to it
+    - role: vpn_egress
+      tags: [wireguard, vpn]
+      when: >-
+        inventory_hostname == wireguard_hub and
+        groups['wireguard'] | map('extract', hostvars) | selectattr('wireguard_via_vpn', 'defined')
+        | selectattr('wireguard_via_vpn') | list | length > 0
     - role: wireguard
       tags: wireguard
     - role: daedalus_agent
@@ -21,3 +28,12 @@
   roles:
     - role: daedalus_checks
       tags: checks
+
+# The public front: the UI on its own server, /api to the hub through the tunnel inside the VPN.
+- name: Public front
+  hosts: daedalus_front
+  become: true
+  vars_files: [vars/daedalus_version.yml]
+  roles:
+    - role: daedalus_front
+      tags: front

@@ -1,0 +1,95 @@
+---
+- name: Spokes the hub reaches through the VPN
+  ansible.builtin.set_fact:
+    vpn_egress_targets: >-
+      {{ groups['wireguard'] | map('extract', hostvars) | selectattr('wireguard_via_vpn', 'defined')
+         | selectattr('wireguard_via_vpn') | map(attribute='ansible_host') | list }}
+
+- name: Stop if the VPN is not described in the inventory
+  ansible.builtin.assert:
+    that:
+      - vpn_private_key is defined
+      - vpn_address is defined
+      - vpn_peer_public_key is defined
+      - vpn_endpoint is defined
+      - vpn_egress_targets | length > 0
+    fail_msg: "{{ inventory_hostname }}: set vpn_* in host_vars and wireguard_via_vpn=true on the spoke behind the VPN"
+
+- name: Install wireguard-tools
+  ansible.builtin.apt:
+    name: wireguard-tools
+    state: present
+    lock_timeout: 90
+
+# Before the VPN exists: from the very first packet, nothing for those spokes may leave by the direct route.
+- name: Guard route, set at boot before any tunnel comes up
+  ansible.builtin.template:
+    src: vpn-guard.service.j2
+    dest: /etc/systemd/system/daedalus-vpn-guard.service
+    owner: root
+    group: root
+    mode: "0644"
+  register: vpn_egress_guard_unit
+
+- name: Guard route, on now
+  ansible.builtin.systemd_service:
+    name: daedalus-vpn-guard
+    enabled: true
+    state: "{{ 'restarted' if vpn_egress_guard_unit.changed else 'started' }}"
+    daemon_reload: "{{ vpn_egress_guard_unit.changed }}"
+  ignore_errors: "{{ ansible_check_mode }}"
+
+- name: Create /etc/wireguard
+  ansible.builtin.file:
+    path: /etc/wireguard
+    state: directory
+    owner: root
+    group: root
+    mode: "0700"
+
+- name: Render the VPN config
+  ansible.builtin.template:
+    src: vpn.conf.j2
+    dest: /etc/wireguard/{{ vpn_interface }}.conf
+    owner: root
+    group: root
+    mode: "0600"
+  no_log: true   # it holds the VPN's private key
+  notify: Restart VPN
+
+- name: Create the wg0 drop-in folder
+  ansible.builtin.file:
+    path: /etc/systemd/system/wg-quick@wg0.service.d
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: The tunnel to the spokes starts after the VPN
+  ansible.builtin.copy:
+    dest: /etc/systemd/system/wg-quick@wg0.service.d/after-vpn.conf
+    owner: root
+    group: root
+    mode: "0644"
+    content: |
+      # Managed by Ansible (roles/vpn_egress)
+      [Unit]
+      Wants=wg-quick@{{ vpn_interface }}.service
+      After=wg-quick@{{ vpn_interface }}.service daedalus-vpn-guard.service
+  register: vpn_egress_dropin
+
+- name: Reload systemd units
+  ansible.builtin.systemd_service:
+    daemon_reload: true
+  when: vpn_egress_dropin.changed # noqa: no-handler
+
+- name: Enable and start the VPN
+  ansible.builtin.systemd_service:
+    name: wg-quick@{{ vpn_interface }}
+    enabled: true
+    state: started
+  ignore_errors: "{{ ansible_check_mode }}"
+
+# The VPN must be up before roles/wireguard restarts wg0 and the hub handshakes with the spokes behind it
+- name: Apply now
+  ansible.builtin.meta: flush_handlers

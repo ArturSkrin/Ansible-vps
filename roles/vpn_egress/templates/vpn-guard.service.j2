@@ -1,0 +1,17 @@
+# {{ ansible_managed }}
+# An unreachable route behind the VPN's own route (which has metric 0): while the VPN is up its route wins,
+# while it is down these packets are dropped, never sent straight to the spoke with the hub's address on them.
+[Unit]
+Description=Daedalus: traffic to the spokes behind the VPN goes through the VPN or nowhere
+Before=wg-quick@{{ vpn_interface }}.service wg-quick@wg0.service
+After=network-pre.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+{% for ip in vpn_egress_targets %}
+ExecStart=/usr/sbin/ip route replace unreachable {{ ip }}/32 metric {{ vpn_guard_metric }}
+{% endfor %}
+
+[Install]
+WantedBy=multi-user.target

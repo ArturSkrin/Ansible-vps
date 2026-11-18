@@ -1,0 +1,29 @@
+---
+- name: Stop unless the front sits behind the VPN
+  ansible.builtin.assert:
+    that: wireguard_via_vpn | default(false) | bool
+    fail_msg: "{{ inventory_hostname }}: the public front must have wireguard_via_vpn=True in [wireguard]"
+
+- name: Create {{ daedalus_front_dir }}
+  ansible.builtin.file:
+    path: "{{ daedalus_front_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Render compose file
+  ansible.builtin.template:
+    src: docker-compose.yml.j2
+    dest: "{{ daedalus_front_dir }}/docker-compose.yml"
+    owner: root
+    group: root
+    mode: "0644"
+
+# the image tag is a commit sha and never moves: a new daedalus_version means a new tag, which compose pulls
+- name: Start or update
+  ansible.builtin.command: docker compose up -d --remove-orphans
+  args:
+    chdir: "{{ daedalus_front_dir }}"
+  register: daedalus_front_up
+  changed_when: "'Started' in daedalus_front_up.stderr or 'Recreated' in daedalus_front_up.stderr"

@@ -7,6 +7,15 @@
       - wireguard_hub in groups['wireguard']
     fail_msg: "{{ inventory_hostname }}: set wireguard_address on the host and wireguard_hub for the group"
 
+# A spoke behind the VPN must never get a handshake straight from the hub: no VPN on the hub, no tunnel at all.
+- name: Stop if a spoke is behind the VPN but the hub has no VPN
+  ansible.builtin.assert:
+    that: hostvars[wireguard_hub].vpn_private_key is defined
+    fail_msg: "{{ inventory_hostname }}: wireguard_via_vpn is set, but {{ wireguard_hub }} has no vpn_* in host_vars"
+  when: >-
+    groups['wireguard'] | map('extract', hostvars) | selectattr('wireguard_via_vpn', 'defined')
+    | selectattr('wireguard_via_vpn') | list | length > 0
+
 - name: Install wireguard-tools (the module is in the Ubuntu kernel)
   ansible.builtin.apt:
     name: wireguard-tools

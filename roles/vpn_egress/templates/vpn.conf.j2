@@ -1,0 +1,12 @@
+# {{ ansible_managed }}
+# Public VPN, for the traffic to {{ vpn_egress_targets | join(', ') }} only (no full tunnel, no DNS change).
+[Interface]
+PrivateKey = {{ vpn_private_key }}
+Address = {{ vpn_address }}
+
+[Peer]
+PublicKey = {{ vpn_peer_public_key }}
+AllowedIPs = {% for ip in vpn_egress_targets %}{{ ip }}/32{{ ', ' if not loop.last else '' }}{% endfor %}
+
+Endpoint = {{ vpn_endpoint }}
+PersistentKeepalive = 25

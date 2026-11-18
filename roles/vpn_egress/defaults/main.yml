@@ -1,0 +1,18 @@
+---
+# The hub reaches some spokes only through a public commercial VPN (WireGuard, e.g. Proton or Mullvad), so those
+# spokes see the VPN's exit address and never the hub's own. Only traffic to those spokes' public IPs goes
+# through the VPN: the rest of the fleet, Loki and cloudflared stay on the direct route.
+#
+# Inventory:
+#   <spoke> ... wireguard_via_vpn=true                 the spoke the hub reaches through the VPN (the public front)
+#   host_vars/<hub>.yml (gitignored), four values from the provider's WireGuard config for Linux:
+#     vpn_private_key:     [Interface] PrivateKey
+#     vpn_address:         [Interface] Address, IPv4 only, e.g. 10.2.0.2/32
+#     vpn_peer_public_key: [Peer] PublicKey
+#     vpn_endpoint:        [Peer] Endpoint, ip:port
+#   The provider's DNS and AllowedIPs lines are not used on purpose: no full tunnel, the host keeps its resolver.
+vpn_interface: vpn0
+
+# Metric of the unreachable route that stands behind the VPN's route: when the VPN is down, packets to a spoke
+# behind it are dropped instead of leaving by the direct route (which would show the spoke the hub's address).
+vpn_guard_metric: 4000
