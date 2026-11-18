@@ -1,0 +1,14 @@
+---
+# The public front of Daedalus on its own server: the frontend image (nginx with the built UI), /api proxied to
+# the hub's backend through wg0. The hub stays out of reach: the front only knows the hub's WireGuard address,
+# and the tunnel to it runs inside the public VPN (roles/vpn_egress, wireguard_via_vpn=true on this host).
+#
+# Inventory: the host is in [wireguard] (wireguard_via_vpn=True) and in [daedalus_front].
+daedalus_front_dir: /opt/daedalus-front
+daedalus_front_image: "ghcr.io/arturskrin/daedalus-infra-health-frontend:{{ daedalus_version }}"
+
+# The hub's backend, published on its WireGuard address (docker-compose.hub-api.yaml of the Daedalus repo)
+daedalus_front_backend_host: "{{ hostvars[wireguard_hub].wireguard_address }}"
+
+# Loopback only: until Cloudflare Tunnel is in front of it, open it through ssh -L 8080:127.0.0.1:8080 <front>
+daedalus_front_bind: "127.0.0.1:8080"

@@ -1,0 +1,11 @@
+# {{ ansible_managed }}
+# The Daedalus UI. It computes nothing itself: /api goes to the hub's backend at {{ daedalus_front_backend_host }}
+# through the WireGuard tunnel.
+services:
+  frontend:
+    image: {{ daedalus_front_image }}
+    restart: unless-stopped
+    environment:
+      BACKEND_HOST: "{{ daedalus_front_backend_host }}"
+    ports:
+      - "{{ daedalus_front_bind }}:80"

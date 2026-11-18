@@ -10,6 +10,10 @@ wireguard_interface: wg0
 wireguard_port: 51820          # spokes listen here
 wireguard_prefix: 24           # 10.77.0.0/24
 
+# A spoke with wireguard_via_vpn=true is reached through the public VPN (roles/vpn_egress on the hub).
+# wg0 on the hub and on that spoke gets a smaller MTU: 1420 inside the VPN minus 80 for our own header.
+wireguard_vpn_mtu: 1340
+
 # Ports of the Daedalus agents the hub reads: 9000 docker compose, 9001 k3s
 wireguard_agent_ports: [9000, 9001]
 

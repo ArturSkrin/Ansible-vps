@@ -1,6 +1,11 @@
 # {{ ansible_managed }}
+{% set via_vpn = groups['wireguard'] | map('extract', hostvars) | selectattr('wireguard_via_vpn', 'defined') | selectattr('wireguard_via_vpn') | list %}
 [Interface]
 Address = {{ wireguard_address }}/{{ wireguard_prefix }}
+{% if (inventory_hostname == wireguard_hub and via_vpn) or wireguard_via_vpn | default(false) %}
+# a tunnel inside the public VPN (roles/vpn_egress): room for the VPN's own header
+MTU = {{ wireguard_vpn_mtu }}
+{% endif %}
 # the key stays in its own file, readable by root only
 PostUp = wg set %i private-key /etc/wireguard/%i.key
 {% if inventory_hostname != wireguard_hub %}
