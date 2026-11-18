@@ -11,8 +11,8 @@
 #     vpn_peer_public_key: [Peer] PublicKey
 #     vpn_endpoint:        [Peer] Endpoint, ip:port
 #   The provider's DNS and AllowedIPs lines are not used on purpose: no full tunnel, the host keeps its resolver.
-vpn_interface: vpn0
+vpn_egress_interface: vpn0
 
 # Metric of the unreachable route that stands behind the VPN's route: when the VPN is down, packets to a spoke
 # behind it are dropped instead of leaving by the direct route (which would show the spoke the hub's address).
-vpn_guard_metric: 4000
+vpn_egress_guard_metric: 4000

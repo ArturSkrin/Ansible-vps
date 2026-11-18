@@ -50,7 +50,7 @@
 - name: Render the VPN config
   ansible.builtin.template:
     src: vpn.conf.j2
-    dest: /etc/wireguard/{{ vpn_interface }}.conf
+    dest: /etc/wireguard/{{ vpn_egress_interface }}.conf
     owner: root
     group: root
     mode: "0600"
@@ -74,8 +74,8 @@
     content: |
       # Managed by Ansible (roles/vpn_egress)
       [Unit]
-      Wants=wg-quick@{{ vpn_interface }}.service
-      After=wg-quick@{{ vpn_interface }}.service daedalus-vpn-guard.service
+      Wants=wg-quick@{{ vpn_egress_interface }}.service
+      After=wg-quick@{{ vpn_egress_interface }}.service daedalus-vpn-guard.service
   register: vpn_egress_dropin
 
 - name: Reload systemd units
@@ -85,7 +85,7 @@
 
 - name: Enable and start the VPN
   ansible.builtin.systemd_service:
-    name: wg-quick@{{ vpn_interface }}
+    name: wg-quick@{{ vpn_egress_interface }}
     enabled: true
     state: started
   ignore_errors: "{{ ansible_check_mode }}"
