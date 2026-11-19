@@ -10,5 +10,11 @@ daedalus_front_image: "ghcr.io/arturskrin/daedalus-infra-health-frontend:{{ daed
 # The hub's backend, published on its WireGuard address (docker-compose.hub-api.yaml of the Daedalus repo)
 daedalus_front_backend_host: "{{ hostvars[wireguard_hub].wireguard_address }}"
 
-# Loopback only: until Cloudflare Tunnel is in front of it, open it through ssh -L 8080:127.0.0.1:8080 <front>
+# Loopback only: the public way in is Cloudflare Tunnel; for a look without it, ssh -L 8090:127.0.0.1:8080 <front>
 daedalus_front_bind: "127.0.0.1:8080"
+
+# Cloudflare Tunnel, managed in the Cloudflare dashboard (Zero Trust > Networks > Tunnels): the public hostname
+# points to http://frontend:80, and Cloudflare Access in front of it decides who gets in. Only the token lives
+# here, in gitignored host_vars/<front>.yml: daedalus_front_tunnel_token: "eyJ...". Empty: no tunnel.
+daedalus_front_tunnel_token: ""
+daedalus_front_cloudflared_image: cloudflare/cloudflared:2026.10.0
