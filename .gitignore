@@ -13,3 +13,4 @@ files/*
 id_*
 .vault_pass*
 *.retry
+.facts_cache/
