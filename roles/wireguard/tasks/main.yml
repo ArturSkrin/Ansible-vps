@@ -46,9 +46,11 @@
   failed_when: wireguard_pubkey.rc != 0 and not ansible_check_mode
 
 # The hub's config is built from every spoke's public key: run the play for the whole group, not with --limit.
+# cacheable: kept in the fact cache (ansible.cfg), so the hub still knows this key on a run where this host is down
 - name: Share the public key with the other hosts
   ansible.builtin.set_fact:
     wireguard_public_key: "{{ wireguard_pubkey.stdout or 'NEW-KEY-IS-GENERATED-ON-THE-FIRST-REAL-RUN' }}"
+    cacheable: "{{ not ansible_check_mode }}"
 
 - name: Host firewall rules for the tunnel
   ansible.builtin.import_tasks: firewall.yml
