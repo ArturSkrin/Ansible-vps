@@ -9,3 +9,16 @@ services:
       BACKEND_HOST: "{{ daedalus_front_backend_host }}"
     ports:
       - "{{ daedalus_front_bind }}:80"
+{% if daedalus_front_tunnel_token %}
+
+  # The only way in from the internet: an outbound connection to Cloudflare, no port open on this server.
+  # Who may open the page is Cloudflare Access's call, before a request ever reaches this host.
+  cloudflared:
+    image: {{ daedalus_front_cloudflared_image }}
+    command: ["tunnel", "--no-autoupdate", "run"]
+    restart: unless-stopped
+    environment:
+      TUNNEL_TOKEN: "{{ daedalus_front_tunnel_token }}"
+    depends_on:
+      - frontend
+{% endif %}

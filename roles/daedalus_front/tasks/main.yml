@@ -18,7 +18,8 @@
     dest: "{{ daedalus_front_dir }}/docker-compose.yml"
     owner: root
     group: root
-    mode: "0644"
+    mode: "0600"   # it holds the tunnel token
+  no_log: true
 
 # the image tag is a commit sha and never moves: a new daedalus_version means a new tag, which compose pulls
 - name: Start or update
